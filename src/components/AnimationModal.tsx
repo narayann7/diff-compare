@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, Play, Pause, RotateCcw } from 'lucide-react'
-import { cn } from '../lib/utils'
 import { type DiffLine, type DiffStats } from '../lib/diff-utils'
 
 // ─── Tunables ────────────────────────────────────────────────────────────────
-const FPS = 30
 const LINE_DELAY_MS = 80   // ms between each line appearing
 const STATS_DELAY_MS = 200 // ms before stats start counting
 
@@ -153,8 +151,7 @@ function AnimatedLine({
 }
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
-export function AnimationModal({ lines, stats, theme, onClose }: AnimationModalProps) {
-  const isDark = theme === 'dark'
+export function AnimationModal({ lines, stats, onClose }: AnimationModalProps) {
   const displayLines = lines.slice(0, 50)
   const totalDuration = STATS_DELAY_MS + displayLines.length * LINE_DELAY_MS + 600
 
