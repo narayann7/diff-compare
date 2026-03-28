@@ -2,25 +2,31 @@ import { Copy, Check, RotateCcw, Play, Palette } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useState, useRef, useEffect } from 'react'
 import { type Theme } from '../hooks/useTheme'
+import { type DiffStats } from '../lib/diff-utils'
+import { DiffStatsBar } from './DiffStats'
 
 export type ViewMode = 'unified' | 'split'
 
 interface ToolbarProps {
   theme: Theme
+  selectedTheme?: Theme
   onSetTheme: (t: Theme) => void
   onReset: () => void
   getDiffText: () => string
   hasContent: boolean
   onAnimate?: () => void
+  stats?: DiffStats | null
 }
 
 export function Toolbar({
   theme,
+  selectedTheme,
   onSetTheme,
   onReset,
   getDiffText,
   hasContent,
   onAnimate,
+  stats,
 }: ToolbarProps) {
   const isDark = theme !== 'light'
   const [copied, setCopied] = useState(false)
@@ -41,7 +47,7 @@ export function Toolbar({
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 w-48 shrink-0">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className={isDark ? 'text-white/80' : 'text-gray-800'}>
           <rect x="1" y="1" width="9" height="3" rx="1.5" fill="currentColor" opacity="0.9" />
           <rect x="1" y="6" width="6" height="3" rx="1.5" fill="currentColor" opacity="0.5" />
@@ -57,10 +63,14 @@ export function Toolbar({
         </span>
       </div>
 
-
+      {hasContent && stats && (
+        <div className="flex-1 flex justify-center max-w-2xl px-4 min-w-0">
+          <DiffStatsBar stats={stats} theme={theme} />
+        </div>
+      )}
 
       {/* Right Actions */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex justify-end items-center gap-1.5 w-48 shrink-0">
         {hasContent && onAnimate && (
           <button
             id="animate-btn"
@@ -103,7 +113,7 @@ export function Toolbar({
         )}
 
         {/* Theme Picker */}
-        <ThemePicker theme={theme} onSetTheme={onSetTheme} />
+        <ThemePicker theme={theme} selectedTheme={selectedTheme || theme} onSetTheme={onSetTheme} />
       </div>
     </header>
   )
@@ -146,15 +156,15 @@ function ToolbarIconButton({
   )
 }
 
-const THEMES: { id: Theme; label: string; swatch: string; desc: string }[] = [
+const THEMES: { id: Theme; label: string; swatch: string; desc: string; isSystem?: boolean }[] = [
   { id: 'dark',    label: 'Dark',    swatch: 'hsl(220 4% 14%)',  desc: 'Default dark' },
-  { id: 'dracula', label: 'Dracula', swatch: 'hsl(265 89% 60%)', desc: 'Purple-tinted dark' },
+  { id: 'dracula', label: 'Dracula', swatch: 'hsl(265 89% 50%)', desc: 'Purple-tinted dark' },
   { id: 'ocean',   label: 'Ocean',   swatch: 'hsl(213 60% 40%)', desc: 'Deep blue dark' },
   { id: 'light',   label: 'Light',   swatch: 'hsl(0 0% 90%)',    desc: 'Light mode' },
-  { id: 'skillz',  label: 'Skillz',  swatch: 'hsl(248 100% 71%)', desc: 'Electric dark' },
+  { id: 'skillz',  label: 'Skillz',  swatch: '#FFBF3B', desc: 'Vesper Golden' },
 ]
 
-function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Theme) => void }) {
+function ThemePicker({ theme, selectedTheme, onSetTheme }: { theme: Theme; selectedTheme: Theme; onSetTheme: (t: Theme) => void }) {
   const isDark = theme !== 'light'
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -168,7 +178,7 @@ function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Them
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const current = THEMES.find(t => t.id === theme)!
+  const current = THEMES.find(t => t.id === selectedTheme) || THEMES.find(t => t.id === theme)!
 
   return (
     <div ref={ref} className="relative">
@@ -202,7 +212,7 @@ function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Them
             Theme
           </div>
           {THEMES.map(({ id, label, swatch, desc }) => {
-            const active = theme === id
+            const active = selectedTheme === id
             return (
               <button
                 key={id}

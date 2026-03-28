@@ -19,8 +19,7 @@
 
 8. 🧩 Syntax highlighting (selective) Only for: JSON, JS, TS, HTML
 
-9. 🌓 Auto dark/light based on system
-Small but nice UX polish
+
 
 10. 🧾 Paste detection
 Auto-detect if input is:

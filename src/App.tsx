@@ -3,29 +3,27 @@ import { Maximize2, Minimize2, AlignLeft } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { Toolbar, type ViewMode } from './components/Toolbar'
-import { DiffStatsBar } from './components/DiffStats'
 import { EditorPanel } from './components/EditorPanel'
 import { UnifiedDiffViewer, SideBySideDiffViewer } from './components/DiffViewer'
 import { AnimationModal } from './components/AnimationModal'
 import { DiffSettings, type DiffSettingsState } from './components/DiffSettings'
 import { cn } from './lib/utils'
-
-// @ts-ignore - Vite specific
+import { useLocalStorage } from './hooks/useLocalStorage'
+// @ts-expect-error - Vite specific
 const rawFiles = import.meta.glob('../dump/examples/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const file1 = rawFiles['../dump/examples/file1.txt'] || ''
 const file2 = rawFiles['../dump/examples/file2.txt'] || ''
 
 export default function App() {
-  const { theme, setTheme } = useTheme()
-  const isDark = theme !== 'light'
+  const { theme, selectedTheme, setTheme, isDark } = useTheme()
 
   const [original, setOriginal] = useState(file1)
   const [modified, setModified] = useState(file2)
   const [originalFileName, setOriginalFileName] = useState<string>()
   const [modifiedFileName, setModifiedFileName] = useState<string>()
 
-  const [viewMode, setViewMode] = useState<ViewMode>('split')
-  const [diffSettings, setDiffSettings] = useState<DiffSettingsState>({
+  const [viewMode, setViewMode] = useLocalStorage<ViewMode>('diffViewMode', 'split')
+  const [diffSettings, setDiffSettings] = useLocalStorage<DiffSettingsState>('diffSettings', {
     ignoreWhitespace: false,
     ignoreCase: false,
     ignoreEmptyLines: false,
@@ -91,14 +89,14 @@ export default function App() {
     >
       <Toolbar
         theme={theme}
+        selectedTheme={selectedTheme}
         onSetTheme={setTheme}
         onReset={handleReset}
         getDiffText={getDiffText}
         hasContent={hasContent}
         onAnimate={() => setShowAnimation(true)}
+        stats={stats}
       />
-
-      {hasContent && <DiffStatsBar stats={stats} theme={theme} />}
 
       {/* Input Panels */}
       <div
