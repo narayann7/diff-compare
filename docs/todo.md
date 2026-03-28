@@ -1,2 +1,0 @@
-- option for case sensitive
-- option for minimal diff like vscode

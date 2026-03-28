@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { Upload, X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Upload, X, Copy, Check } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { type Theme } from '../hooks/useTheme'
 
@@ -108,6 +108,9 @@ export function EditorPanel({
             <span>Upload</span>
           </button>
           {!isEmpty && (
+            <CopyButton value={value} side={side} isDark={isDark} />
+          )}
+          {!isEmpty && (
             <button
               id={`clear-btn-${side}`}
               onClick={onClear}
@@ -161,5 +164,32 @@ export function EditorPanel({
         />
       </div>
     </div>
+  )
+}
+
+function CopyButton({ value, side, isDark }: { value: string; side: string; isDark: boolean }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    if (!value) return
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      id={`copy-btn-${side}`}
+      onClick={handleCopy}
+      className={cn(
+        'p-1 rounded-md transition-colors',
+        isDark
+          ? 'text-surface-muted hover:text-white hover:bg-surface-border'
+          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+      )}
+      title="Copy to clipboard"
+    >
+      {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+    </button>
   )
 }

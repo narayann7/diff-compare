@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Maximize2, Minimize2, Map } from 'lucide-react'
+import { Maximize2, Minimize2, Map, AlignLeft } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { Toolbar, type ViewMode } from './components/Toolbar'
@@ -25,10 +25,9 @@ export default function App() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
-  const [wrapLines, setWrapLines] = useState(true)
   const [showAnimation, setShowAnimation] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [showMinimap, setShowMinimap] = useState(true)
+  const [showMinimap, setShowMinimap] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -87,12 +86,6 @@ export default function App() {
       <Toolbar
         theme={theme}
         onSetTheme={setTheme}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        ignoreWhitespace={ignoreWhitespace}
-        onIgnoreWhitespaceChange={setIgnoreWhitespace}
-        wrapLines={wrapLines}
-        onWrapLinesChange={setWrapLines}
         onReset={handleReset}
         getDiffText={getDiffText}
         hasContent={hasContent}
@@ -156,13 +149,61 @@ export default function App() {
       {/* Diff Output */}
       <div className={cn('flex-1 overflow-hidden px-4 py-3 flex flex-col gap-1')}>
         <div className="flex justify-between items-center mb-1.5 px-0.5">
-          <div
-            className={cn(
-              'text-xs font-semibold uppercase tracking-widest',
-              isDark ? 'text-surface-muted' : 'text-gray-400'
-            )}
-          >
-            {viewMode === 'unified' ? 'Unified Diff' : 'Split Diff'}
+          {/* Left: view mode toggle + ignore whitespace */}
+          <div className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                'flex items-center rounded-lg p-0.5 gap-0.5',
+                isDark ? 'bg-surface-border/50' : 'bg-gray-100'
+              )}
+            >
+              <button
+                id="view-unified-diff"
+                onClick={() => setViewMode('unified')}
+                title="Unified view"
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150',
+                  viewMode === 'unified'
+                    ? isDark ? 'bg-white/10 text-white' : 'bg-white text-gray-900 shadow-sm'
+                    : isDark ? 'text-surface-muted hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                )}
+              >
+                <AlignLeft size={12} />
+                <span>Unified</span>
+              </button>
+              <button
+                id="view-split-diff"
+                onClick={() => setViewMode('split')}
+                title="Split view"
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150',
+                  viewMode === 'split'
+                    ? isDark ? 'bg-white/10 text-white' : 'bg-white text-gray-900 shadow-sm'
+                    : isDark ? 'text-surface-muted hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                )}
+              >
+                <SplitMiniIcon />
+                <span>Split</span>
+              </button>
+            </div>
+            <div className={cn('w-px h-4', isDark ? 'bg-surface-border' : 'bg-gray-200')} />
+            <button
+              id="toggle-whitespace-diff"
+              onClick={() => setIgnoreWhitespace(!ignoreWhitespace)}
+              className={cn(
+                'px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 flex items-center gap-1',
+                ignoreWhitespace
+                  ? isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-900'
+                  : isDark ? 'text-surface-muted hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              )}
+              title={ignoreWhitespace ? 'Stop ignoring whitespace' : 'Ignore whitespace'}
+            >
+              <span className={cn(
+                'w-1.5 h-1.5 rounded-full transition-colors',
+                ignoreWhitespace ? (isDark ? 'bg-white' : 'bg-gray-700') : isDark ? 'bg-surface-muted' : 'bg-gray-300'
+              )} />
+              Ignore whitespace
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -219,12 +260,12 @@ export default function App() {
           )}
         >
           {viewMode === 'unified' ? (
-            <UnifiedDiffViewer lines={lines} wrapLines={wrapLines} showMinimap={showMinimap} />
+            <UnifiedDiffViewer lines={lines} wrapLines={true} showMinimap={showMinimap} />
           ) : (
             <SideBySideDiffViewer
               leftLines={leftLines}
               rightLines={rightLines}
-              wrapLines={wrapLines}
+              wrapLines={true}
               showMinimap={showMinimap}
             />
           )}
@@ -241,5 +282,14 @@ export default function App() {
         />
       )}
     </div>
+  )
+}
+
+function SplitMiniIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 13 13" fill="none">
+      <rect x="0" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
+      <rect x="7.5" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
+    </svg>
   )
 }
