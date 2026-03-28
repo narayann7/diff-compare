@@ -1,14 +1,14 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Maximize2, Minimize2, AlignLeft } from 'lucide-react'
-import { useTheme } from './hooks/useTheme'
-import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
-import { Toolbar, type ViewMode } from './components/Toolbar'
-import { EditorPanel } from './components/EditorPanel'
-import { UnifiedDiffViewer, SideBySideDiffViewer } from './components/DiffViewer'
+import { AlignLeft, Maximize2, Minimize2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimationModal } from './components/AnimationModal'
 import { DiffSettings, type DiffSettingsState } from './components/DiffSettings'
-import { cn } from './lib/utils'
+import { SideBySideDiffViewer, UnifiedDiffViewer } from './components/DiffViewer'
+import { EditorPanel } from './components/EditorPanel'
+import { Toolbar, type ViewMode } from './components/Toolbar'
 import { useLocalStorage } from './hooks/useLocalStorage'
+import { useTheme } from './hooks/useTheme'
+import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
+import { cn } from './lib/utils'
 // @ts-expect-error - Vite specific
 const rawFiles = import.meta.glob('../dump/examples/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const file1 = rawFiles['../dump/examples/file1.txt'] || ''
@@ -70,6 +70,13 @@ export default function App() {
     setModifiedFileName(undefined)
   }
 
+  const handleSwap = () => {
+    setOriginal(modified)
+    setModified(original)
+    setOriginalFileName(modifiedFileName)
+    setModifiedFileName(originalFileName)
+  }
+
   const getDiffText = useCallback(() => {
     return lines
       .map((l) => {
@@ -91,6 +98,7 @@ export default function App() {
         theme={theme}
         selectedTheme={selectedTheme}
         onSetTheme={setTheme}
+        onSwap={handleSwap}
         onReset={handleReset}
         getDiffText={getDiffText}
         hasContent={hasContent}
