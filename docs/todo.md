@@ -1,1 +1,0 @@
-- if app is view in phone then show error
