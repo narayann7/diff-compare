@@ -1,9 +1,11 @@
 import { ArrowLeftRight, Check, Copy, Palette, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { type ShareState } from '../hooks/usePeerShare'
 import { type Theme } from '../hooks/useTheme'
 import { type DiffStats } from '../lib/diff-utils'
 import { cn } from '../lib/utils'
 import { DiffStatsBar } from './DiffStats'
+import { SharePanel } from './SharePanel'
 
 export type ViewMode = 'unified' | 'split'
 
@@ -15,8 +17,12 @@ interface ToolbarProps {
   onReset: () => void
   getDiffText: () => string
   hasContent: boolean
-  onAnimate?: () => void
   stats?: DiffStats | null
+  shareState: ShareState
+  shareUrl: string | null
+  shareErrorMessage: string | null
+  onShare: () => void
+  onStopShare: () => void
 }
 
 export function Toolbar({
@@ -27,8 +33,12 @@ export function Toolbar({
   onReset,
   getDiffText,
   hasContent,
-  onAnimate,
   stats,
+  shareState,
+  shareUrl,
+  shareErrorMessage,
+  onShare,
+  onStopShare,
 }: ToolbarProps) {
   const isDark = theme !== 'light'
   const [copied, setCopied] = useState(false)
@@ -72,26 +82,18 @@ export function Toolbar({
       )}
 
       {/* Right Actions */}
-      <div className="flex justify-end items-center gap-1.5 w-48 shrink-0">
-        {/* {hasContent && onAnimate && (
-          <button
-            id="animate-btn"
-            onClick={onAnimate}
-            title="Animate diff"
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150',
-              isDark
-                ? 'bg-white/8 text-white/80 hover:bg-white/14 hover:text-white border border-white/10'
-                : 'bg-gray-900 text-white hover:bg-gray-700 border border-gray-800'
-            )}
-          >
-            <Play size={11} className="fill-current" />
-            <span>Animate</span>
-          </button>
-        )} */}
-        {hasContent && onAnimate && <div className={cn('w-px h-5 mx-0.5', isDark ? 'bg-surface-border' : 'bg-gray-200')} />}
+      <div className="flex justify-end items-center gap-2 w-48 shrink-0">
+        <SharePanel
+          shareState={shareState}
+          shareUrl={shareUrl}
+          errorMessage={shareErrorMessage}
+          onShare={onShare}
+          onStop={onStopShare}
+          theme={theme}
+        />
         {hasContent && (
           <>
+            <div className={cn('w-px h-5', isDark ? 'bg-surface-border' : 'bg-gray-200')} />
             <ToolbarIconButton
               id="copy-diff"
               onClick={handleCopy}
@@ -119,9 +121,9 @@ export function Toolbar({
             >
               <RotateCcw size={14} />
             </ToolbarIconButton>
-            <div className={cn('w-px h-5 mx-0.5', isDark ? 'bg-surface-border' : 'bg-gray-200')} />
           </>
         )}
+        <div className={cn('w-px h-5', isDark ? 'bg-surface-border' : 'bg-gray-200')} />
 
         {/* Theme Picker */}
         <ThemePicker theme={theme} selectedTheme={selectedTheme || theme} onSetTheme={onSetTheme} />

@@ -6,6 +6,7 @@ import { SideBySideDiffViewer, UnifiedDiffViewer } from './components/DiffViewer
 import { EditorPanel } from './components/EditorPanel'
 import { Toolbar, type ViewMode } from './components/Toolbar'
 import { useLocalStorage } from './hooks/useLocalStorage'
+import { usePeerShare } from './hooks/usePeerShare'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { cn } from './lib/utils'
@@ -32,6 +33,27 @@ export default function App() {
   })
   const [showAnimation, setShowAnimation] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+
+  const { shareState, shareUrl, startSharing, stopSharing, errorMessage: shareErrorMessage } = usePeerShare({
+    onReceive: (payload) => {
+      setOriginal(payload.original)
+      setModified(payload.modified)
+      setOriginalFileName(payload.originalFileName)
+      setModifiedFileName(payload.modifiedFileName)
+      setDiffSettings(payload.diffSettings)
+    },
+  })
+
+  const handleShare = () => {
+    startSharing({
+      version: 1,
+      original,
+      modified,
+      originalFileName,
+      modifiedFileName,
+      diffSettings,
+    })
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -102,8 +124,12 @@ export default function App() {
         onReset={handleReset}
         getDiffText={getDiffText}
         hasContent={hasContent}
-        onAnimate={() => setShowAnimation(true)}
         stats={stats}
+        shareState={shareState}
+        shareUrl={shareUrl}
+        shareErrorMessage={shareErrorMessage}
+        onShare={handleShare}
+        onStopShare={stopSharing}
       />
 
       {/* Input Panels */}
