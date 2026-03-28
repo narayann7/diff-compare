@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { type DiffLine, type DiffWord } from '../lib/diff-utils'
 import { cn } from '../lib/utils'
 
@@ -85,10 +86,36 @@ interface SideBySideDiffViewerProps {
 }
 
 export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideBySideDiffViewerProps) {
+  const leftRef = useRef<HTMLDivElement>(null)
+  const rightRef = useRef<HTMLDivElement>(null)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement
+    if (target === leftRef.current && rightRef.current) {
+      if (rightRef.current.scrollTop !== target.scrollTop) {
+        rightRef.current.scrollTop = target.scrollTop
+      }
+      if (rightRef.current.scrollLeft !== target.scrollLeft) {
+        rightRef.current.scrollLeft = target.scrollLeft
+      }
+    } else if (target === rightRef.current && leftRef.current) {
+      if (leftRef.current.scrollTop !== target.scrollTop) {
+        leftRef.current.scrollTop = target.scrollTop
+      }
+      if (leftRef.current.scrollLeft !== target.scrollLeft) {
+        leftRef.current.scrollLeft = target.scrollLeft
+      }
+    }
+  }
+
   return (
     <div className={cn('flex flex-1 overflow-hidden gap-0 animate-fade-in divide-x divide-surface-border dark:divide-surface-border light:divide-surfaceLight-border')}>
       {/* Left Panel */}
-      <div className={cn('flex-1 overflow-auto', !wrapLines && 'overflow-x-auto')}>
+      <div 
+        ref={leftRef}
+        onScroll={handleScroll}
+        className={cn('flex-1 overflow-auto', !wrapLines && 'overflow-x-auto')}
+      >
         {leftLines.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <EmptyState />
@@ -100,7 +127,11 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideB
         )}
       </div>
       {/* Right Panel */}
-      <div className={cn('flex-1 overflow-auto', !wrapLines && 'overflow-x-auto')}>
+      <div 
+        ref={rightRef}
+        onScroll={handleScroll}
+        className={cn('flex-1 overflow-auto', !wrapLines && 'overflow-x-auto')}
+      >
         {rightLines.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <EmptyState />

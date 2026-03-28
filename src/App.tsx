@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { Toolbar, type ViewMode } from './components/Toolbar'
@@ -44,6 +45,25 @@ export default function App() {
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
   const [wrapLines, setWrapLines] = useState(true)
   const [showAnimation, setShowAnimation] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault()
+        setIsExpanded((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const shortcutText = useMemo(() => {
+    if (typeof navigator !== 'undefined') {
+      return /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘E' : 'Ctrl+E'
+    }
+    return '⌘E'
+  }, [])
 
   const { lines, stats } = useMemo(
     () => computeLineDiff(original, modified, ignoreWhitespace),
@@ -101,10 +121,12 @@ export default function App() {
       {/* Input Panels */}
       <div
         className={cn(
-          'grid grid-cols-2 gap-3 px-4 pt-4 shrink-0 transition-all',
-          viewMode === 'unified' ? 'pb-1 grid-cols-2' : 'pb-3 grid-cols-2',
+          'grid grid-cols-2 px-4 shrink-0 transition-all duration-500 ease-in-out overflow-hidden',
+          isExpanded 
+            ? 'opacity-0 gap-0 pt-0 pb-0 pointer-events-none' 
+            : cn('gap-3 pt-4 opacity-100', viewMode === 'unified' ? 'pb-1' : 'pb-3')
         )}
-        style={{ height: viewMode === 'unified' ? '38%' : '46%' }}
+        style={{ height: isExpanded ? '0px' : (viewMode === 'unified' ? '38%' : '46%') }}
       >
         <EditorPanel
           label="Original"
@@ -142,23 +164,60 @@ export default function App() {
 
       {/* Divider */}
       <div
-        className={cn('mx-4 shrink-0 border-b', isDark ? 'border-surface-border' : 'border-surfaceLight-border')}
+        className={cn(
+          'mx-4 shrink-0 transition-all duration-500 ease-in-out',
+          isExpanded ? 'border-b-0 opacity-0' : cn('border-b', isDark ? 'border-surface-border' : 'border-surfaceLight-border')
+        )}
       />
 
       {/* Diff Output */}
       <div className={cn('flex-1 overflow-hidden px-4 py-3 flex flex-col gap-1')}>
-        <div
-          className={cn(
-            'text-xs font-semibold uppercase tracking-widest mb-1.5 px-0.5',
-            isDark ? 'text-surface-muted' : 'text-gray-400'
-          )}
-        >
-          {viewMode === 'unified' ? 'Unified Diff' : 'Split Diff'}
+        <div className="flex justify-between items-center mb-1.5 px-0.5">
+          <div
+            className={cn(
+              'text-xs font-semibold uppercase tracking-widest',
+              isDark ? 'text-surface-muted' : 'text-gray-400'
+            )}
+          >
+            {viewMode === 'unified' ? 'Unified Diff' : 'Split Diff'}
+          </div>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors",
+              isDark 
+                ? "text-surface-muted hover:text-white hover:bg-surface-raised" 
+                : "text-gray-500 hover:text-gray-900 border hover:bg-gray-50 bg-white"
+            )}
+            title={isExpanded ? "Collapse View (Cmd/Ctrl + E)" : "Expand View (Cmd/Ctrl + E)"}
+          >
+            {isExpanded ? (
+              <>
+                <Minimize2 size={13} /> Collapse
+                <kbd className={cn(
+                  "ml-1 flex items-center justify-center px-1 py-0.5 rounded font-sans text-[9px] leading-none border", 
+                  isDark ? "bg-surface-raised border-surfaceLight-border/20 text-surface-muted" : "bg-gray-100 border-gray-200 text-gray-500"
+                )}>
+                  {shortcutText}
+                </kbd>
+              </>
+            ) : (
+              <>
+                <Maximize2 size={13} /> Expand
+                <kbd className={cn(
+                  "ml-1 flex items-center justify-center px-1 py-0.5 rounded font-sans text-[9px] leading-none border", 
+                  isDark ? "bg-surface-raised border-surfaceLight-border/20 text-surface-muted" : "bg-gray-100 border-gray-200 text-gray-500"
+                )}>
+                  {shortcutText}
+                </kbd>
+              </>
+            )}
+          </button>
         </div>
 
         <div
           className={cn(
-            'flex-1 overflow-hidden rounded-lg border',
+            'flex flex-col flex-1 overflow-hidden rounded-lg border',
             isDark ? 'bg-surface-raised border-surface-border' : 'bg-white border-surfaceLight-border'
           )}
         >
