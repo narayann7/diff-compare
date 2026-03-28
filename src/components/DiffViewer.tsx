@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, forwardRef } from 'react'
 import { type DiffLine, type DiffWord } from '../lib/diff-utils'
 import { cn } from '../lib/utils'
 
@@ -58,23 +58,53 @@ export function DiffLineRow({ line, showLeft = true, showRight = true }: DiffLin
 interface UnifiedDiffViewerProps {
   lines: DiffLine[]
   wrapLines: boolean
+  showMinimap?: boolean
 }
 
-export function UnifiedDiffViewer({ lines, wrapLines }: UnifiedDiffViewerProps) {
+export function UnifiedDiffViewer({ lines, wrapLines, showMinimap }: UnifiedDiffViewerProps) {
+  const minimapRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement
+    if (minimapRef.current) {
+      const maxScrollTarget = target.scrollHeight - target.clientHeight
+      if (maxScrollTarget > 0) {
+        const scrollPercent = target.scrollTop / maxScrollTarget
+        const maxScrollMinimap = minimapRef.current.scrollHeight - minimapRef.current.clientHeight
+        minimapRef.current.scrollTop = scrollPercent * maxScrollMinimap
+      }
+    }
+  }
+
+  const handleMinimapScrollRequest = useCallback((percent: number) => {
+    if (contentRef.current) {
+      const maxScrollTarget = contentRef.current.scrollHeight - contentRef.current.clientHeight
+      contentRef.current.scrollTop = percent * maxScrollTarget
+    }
+  }, [])
+
   return (
-    <div className={cn('font-mono text-sm overflow-auto flex-1 animate-fade-in', !wrapLines && 'overflow-x-auto')}>
-      {lines.length === 0 ? (
-        <EmptyState />
-      ) : (
-        lines.map((line, i) => (
-          <DiffLineRow
-            key={i}
-            line={line}
-            showLeft={line.type !== 'added'}
-            showRight={line.type !== 'removed'}
-          />
-        ))
-      )}
+    <div className="flex flex-1 overflow-hidden relative">
+      <div 
+        ref={contentRef}
+        onScroll={handleScroll}
+        className={cn('font-mono text-sm overflow-auto flex-1 animate-fade-in', !wrapLines && 'overflow-x-auto')}
+      >
+        {lines.length === 0 ? (
+          <EmptyState />
+        ) : (
+          lines.map((line, i) => (
+            <DiffLineRow
+              key={i}
+              line={line}
+              showLeft={line.type !== 'added'}
+              showRight={line.type !== 'removed'}
+            />
+          ))
+        )}
+      </div>
+      {showMinimap && <Minimap ref={minimapRef} lines={lines} onScrollRequest={handleMinimapScrollRequest} />}
     </div>
   )
 }
@@ -83,12 +113,14 @@ interface SideBySideDiffViewerProps {
   leftLines: DiffLine[]
   rightLines: DiffLine[]
   wrapLines: boolean
+  showMinimap?: boolean
 }
 
-export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideBySideDiffViewerProps) {
+export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMinimap }: SideBySideDiffViewerProps) {
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const minimapRef = useRef<HTMLDivElement>(null)
 
   const [leftWidth, setLeftWidth] = useState(50)
   const [isResizing, setIsResizing] = useState(false)
@@ -132,7 +164,25 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideB
         leftRef.current.scrollLeft = target.scrollLeft
       }
     }
+
+    if (minimapRef.current) {
+      const maxScrollTarget = target.scrollHeight - target.clientHeight
+      if (maxScrollTarget > 0) {
+        const scrollPercent = target.scrollTop / maxScrollTarget
+        const maxScrollMinimap = minimapRef.current.scrollHeight - minimapRef.current.clientHeight
+        minimapRef.current.scrollTop = scrollPercent * maxScrollMinimap
+      }
+    }
   }
+
+  const handleMinimapScrollRequest = useCallback((percent: number) => {
+    if (leftRef.current && rightRef.current) {
+      const maxScrollTarget = leftRef.current.scrollHeight - leftRef.current.clientHeight
+      const newScrollTop = percent * maxScrollTarget
+      leftRef.current.scrollTop = newScrollTop
+      rightRef.current.scrollTop = newScrollTop
+    }
+  }, [])
 
   return (
     <div 
@@ -189,9 +239,89 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideB
           ))
         )}
       </div>
+
+      {showMinimap && <Minimap ref={minimapRef} leftLines={leftLines} rightLines={rightLines} onScrollRequest={handleMinimapScrollRequest} />}
     </div>
   )
 }
+
+const Minimap = forwardRef<HTMLDivElement, { 
+  lines?: DiffLine[], 
+  leftLines?: DiffLine[], 
+  rightLines?: DiffLine[],
+  onScrollRequest?: (percent: number) => void
+}>(
+  ({ lines, leftLines, rightLines, onScrollRequest }, ref) => {
+    const [isDragging, setIsDragging] = useState(false)
+
+    const handlePointerEvent = useCallback((e: React.MouseEvent | MouseEvent) => {
+      if (!ref || typeof ref === 'function' || !ref.current) return
+      const rect = ref.current.getBoundingClientRect()
+      const clientY = e.clientY - rect.top
+      const percent = Math.max(0, Math.min(1, clientY / rect.height))
+      
+      if (onScrollRequest) {
+        onScrollRequest(percent)
+      }
+    }, [ref, onScrollRequest])
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault()
+      setIsDragging(true)
+      handlePointerEvent(e)
+
+      const handleMouseMove = (mouseEvent: MouseEvent) => {
+        mouseEvent.preventDefault()
+        handlePointerEvent(mouseEvent)
+      }
+
+      const handleMouseUp = () => {
+        setIsDragging(false)
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }, [handlePointerEvent])
+
+    return (
+      <div 
+        ref={ref} 
+        onMouseDown={handleMouseDown}
+        className={cn(
+          "w-8 shrink-0 border-l border-surface-border dark:border-surface-border flex flex-row overflow-hidden bg-surface-raised dark:bg-surface-raised select-none relative",
+          isDragging ? "cursor-grabbing" : "cursor-pointer hover:bg-surface-border/20"
+        )}
+      >
+        {lines ? (
+          <div className="flex-1 relative w-full h-full">
+            {lines.map((l, i) => l.type !== 'equal' && (
+              <div 
+                key={i} 
+                className={cn("absolute w-full h-[2px]", l.type === 'added' ? 'bg-green-500/80' : 'bg-red-500/80')} 
+                style={{ top: `${(i / lines.length) * 100}%` }}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 relative h-full border-r border-surface-border/30 dark:border-surface-border/30">
+               {leftLines?.map((l, i) => l.type === 'removed' && (
+                 <div key={i} className="absolute w-full h-[2px] bg-red-500/80" style={{ top: `${(i / leftLines.length) * 100}%` }} />
+               ))}
+            </div>
+            <div className="flex-1 relative h-full">
+               {rightLines?.map((l, i) => l.type === 'added' && (
+                 <div key={i} className="absolute w-full h-[2px] bg-green-500/80" style={{ top: `${(i / rightLines.length) * 100}%` }} />
+               ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+)
 
 function EmptyState() {
   return (

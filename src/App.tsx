@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2, Map } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { Toolbar, type ViewMode } from './components/Toolbar'
@@ -9,35 +9,17 @@ import { UnifiedDiffViewer, SideBySideDiffViewer } from './components/DiffViewer
 import { AnimationModal } from './components/AnimationModal'
 import { cn } from './lib/utils'
 
-const EXAMPLE_ORIGINAL = `function greet(name: string): string {
-  return "Hello, " + name + "!"
-}
-
-const users = ["Alice", "Bob", "Charlie"]
-
-users.forEach(user => {
-  console.log(greet(user))
-})`
-
-const EXAMPLE_MODIFIED = `function greet(name: string, greeting = "Hello"): string {
-  return \`\${greeting}, \${name}!\`
-}
-
-const users = ["Alice", "Bob", "Charlie", "Dave"]
-
-for (const user of users) {
-  console.log(greet(user))
-}
-
-// Done
-`
+// @ts-ignore - Vite specific
+const rawFiles = import.meta.glob('../dump/examples/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const file1 = rawFiles['../dump/examples/file1.txt'] || ''
+const file2 = rawFiles['../dump/examples/file2.txt'] || ''
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
   const isDark = theme === 'dark'
 
-  const [original, setOriginal] = useState(EXAMPLE_ORIGINAL)
-  const [modified, setModified] = useState(EXAMPLE_MODIFIED)
+  const [original, setOriginal] = useState(file1)
+  const [modified, setModified] = useState(file2)
   const [originalFileName, setOriginalFileName] = useState<string>()
   const [modifiedFileName, setModifiedFileName] = useState<string>()
 
@@ -46,6 +28,7 @@ export default function App() {
   const [wrapLines, setWrapLines] = useState(true)
   const [showAnimation, setShowAnimation] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showMinimap, setShowMinimap] = useState(true)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,10 +164,23 @@ export default function App() {
           >
             {viewMode === 'unified' ? 'Unified Diff' : 'Split Diff'}
           </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors",
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMinimap(!showMinimap)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors border",
+                isDark 
+                  ? "text-surface-muted hover:text-white hover:bg-surface-raised border-transparent hover:border-surfaceLight-border/20 bg-surface" 
+                  : "text-gray-500 hover:text-gray-900 border-transparent hover:bg-gray-50 bg-white"
+              )}
+              title={showMinimap ? "Hide Minimap" : "Show Minimap"}
+            >
+              <Map size={13} /> Minimap
+            </button>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors",
               isDark 
                 ? "text-surface-muted hover:text-white hover:bg-surface-raised" 
                 : "text-gray-500 hover:text-gray-900 border hover:bg-gray-50 bg-white"
@@ -213,6 +209,7 @@ export default function App() {
               </>
             )}
           </button>
+          </div>
         </div>
 
         <div
@@ -222,12 +219,13 @@ export default function App() {
           )}
         >
           {viewMode === 'unified' ? (
-            <UnifiedDiffViewer lines={lines} wrapLines={wrapLines} />
+            <UnifiedDiffViewer lines={lines} wrapLines={wrapLines} showMinimap={showMinimap} />
           ) : (
             <SideBySideDiffViewer
               leftLines={leftLines}
               rightLines={rightLines}
               wrapLines={wrapLines}
+              showMinimap={showMinimap}
             />
           )}
         </div>
