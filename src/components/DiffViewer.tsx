@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import { type DiffLine, type DiffWord } from '../lib/diff-utils'
 import { cn } from '../lib/utils'
 
@@ -88,6 +88,32 @@ interface SideBySideDiffViewerProps {
 export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideBySideDiffViewerProps) {
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const [leftWidth, setLeftWidth] = useState(50)
+  const [isResizing, setIsResizing] = useState(false)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+
+    const handleMouseMove = (mouseMoveEvent: MouseEvent) => {
+      if (!containerRef.current) return
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const newWidthPercent = ((mouseMoveEvent.clientX - containerRect.left) / containerRect.width) * 100
+      const clampedWidth = Math.max(10, Math.min(90, newWidthPercent))
+      setLeftWidth(clampedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement
@@ -109,12 +135,16 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideB
   }
 
   return (
-    <div className={cn('flex flex-1 overflow-hidden gap-0 animate-fade-in divide-x divide-surface-border dark:divide-surface-border light:divide-surfaceLight-border')}>
+    <div 
+      ref={containerRef}
+      className={cn('flex flex-1 overflow-hidden gap-0 animate-fade-in relative')}
+    >
       {/* Left Panel */}
       <div 
         ref={leftRef}
         onScroll={handleScroll}
-        className={cn('flex-1 overflow-auto', !wrapLines && 'overflow-x-auto')}
+        className={cn('overflow-auto', !wrapLines && 'overflow-x-auto')}
+        style={{ flex: `0 0 ${leftWidth}%` }}
       >
         {leftLines.length === 0 ? (
           <div className="h-full flex items-center justify-center">
@@ -126,6 +156,23 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines }: SideB
           ))
         )}
       </div>
+
+      {/* Resizer */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="w-[1px] shrink-0 cursor-col-resize relative z-10"
+      >
+        <div className={cn(
+          "absolute -left-1.5 top-0 bottom-0 w-3 transition-colors flex justify-center group",
+          isResizing ? "bg-blue-500/10" : "hover:bg-blue-500/10"
+        )}>
+          <div className={cn(
+            "w-[1px] h-full transition-colors",
+            isResizing ? "bg-blue-500" : "bg-surface-border/50 group-hover:bg-blue-400 dark:bg-surface-border/50 light:bg-surfaceLight-border/50"
+          )} />
+        </div>
+      </div>
+
       {/* Right Panel */}
       <div 
         ref={rightRef}
