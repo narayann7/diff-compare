@@ -19,12 +19,7 @@ export function DiffStatsBar({ stats, theme }: DiffStatsBarProps) {
   const percentEqual = stats.total > 0 ? (stats.equal / stats.total) * 100 : 0
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-4 px-4 py-2.5 border-b shrink-0 transition-all animate-slide-up',
-        isDark ? 'border-surface-border bg-surface-raised' : 'border-surfaceLight-border bg-gray-50'
-      )}
-    >
+    <div className="flex items-center w-full gap-4 shrink-0 transition-all animate-slide-up">
       <div className="flex items-center gap-1.5">
         <GitCompare size={13} className={isDark ? 'text-surface-muted' : 'text-gray-400'} />
         <span className={cn('text-xs font-medium', isDark ? 'text-surface-muted' : 'text-gray-400')}>

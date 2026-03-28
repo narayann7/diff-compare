@@ -1,38 +1,34 @@
-import { Copy, Check, RotateCcw, WrapText, AlignLeft, Play, Palette } from 'lucide-react'
+import { Copy, Check, RotateCcw, Play, Palette, ArrowLeftRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useState, useRef, useEffect } from 'react'
 import { type Theme } from '../hooks/useTheme'
+import { type DiffStats } from '../lib/diff-utils'
+import { DiffStatsBar } from './DiffStats'
 
 export type ViewMode = 'unified' | 'split'
 
 interface ToolbarProps {
   theme: Theme
+  selectedTheme?: Theme
   onSetTheme: (t: Theme) => void
-  viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
-  ignoreWhitespace: boolean
-  onIgnoreWhitespaceChange: (v: boolean) => void
-  wrapLines: boolean
-  onWrapLinesChange: (v: boolean) => void
+  onSwap: () => void
   onReset: () => void
   getDiffText: () => string
   hasContent: boolean
   onAnimate?: () => void
+  stats?: DiffStats | null
 }
 
 export function Toolbar({
   theme,
+  selectedTheme,
   onSetTheme,
-  viewMode,
-  onViewModeChange,
-  ignoreWhitespace,
-  onIgnoreWhitespaceChange,
-  wrapLines,
-  onWrapLinesChange,
+  onSwap,
   onReset,
   getDiffText,
   hasContent,
   onAnimate,
+  stats,
 }: ToolbarProps) {
   const isDark = theme !== 'light'
   const [copied, setCopied] = useState(false)
@@ -53,7 +49,7 @@ export function Toolbar({
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 w-48 shrink-0">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className={isDark ? 'text-white/80' : 'text-gray-800'}>
           <rect x="1" y="1" width="9" height="3" rx="1.5" fill="currentColor" opacity="0.9" />
           <rect x="1" y="6" width="6" height="3" rx="1.5" fill="currentColor" opacity="0.5" />
@@ -69,62 +65,14 @@ export function Toolbar({
         </span>
       </div>
 
-      {/* Center Controls */}
-      <div className="flex items-center gap-1.5">
-        {/* View Mode Toggle */}
-        <div
-          className={cn(
-            'flex items-center rounded-lg p-0.5 gap-0.5',
-            isDark ? 'bg-surface-border/50' : 'bg-gray-100'
-          )}
-        >
-          <ToolbarButton
-            id="view-unified"
-            active={viewMode === 'unified'}
-            onClick={() => onViewModeChange('unified')}
-            theme={theme}
-            title="Unified view"
-          >
-            <AlignLeft size={13} />
-            <span className="text-xs hidden sm:inline">Unified</span>
-          </ToolbarButton>
-          <ToolbarButton
-            id="view-split"
-            active={viewMode === 'split'}
-            onClick={() => onViewModeChange('split')}
-            theme={theme}
-            title="Split view"
-          >
-            <SplitIcon />
-            <span className="text-xs hidden sm:inline">Split</span>
-          </ToolbarButton>
+      {hasContent && stats && (
+        <div className="flex-1 flex justify-center max-w-2xl px-4 min-w-0">
+          <DiffStatsBar stats={stats} theme={theme} />
         </div>
-
-        <div className={cn('w-px h-5 mx-1', isDark ? 'bg-surface-border' : 'bg-gray-200')} />
-
-        {/* Ignore Whitespace */}
-        <ToggleChip
-          id="toggle-whitespace"
-          label="Ignore whitespace"
-          active={ignoreWhitespace}
-          onClick={() => onIgnoreWhitespaceChange(!ignoreWhitespace)}
-          theme={theme}
-        />
-
-        {/* Wrap Lines */}
-        <ToolbarIconButton
-          id="toggle-wrap"
-          onClick={() => onWrapLinesChange(!wrapLines)}
-          title={wrapLines ? 'Disable line wrap' : 'Enable line wrap'}
-          active={wrapLines}
-          theme={theme}
-        >
-          <WrapText size={14} />
-        </ToolbarIconButton>
-      </div>
+      )}
 
       {/* Right Actions */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex justify-end items-center gap-1.5 w-48 shrink-0">
         {hasContent && onAnimate && (
           <button
             id="animate-btn"
@@ -154,6 +102,15 @@ export function Toolbar({
               {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             </ToolbarIconButton>
             <ToolbarIconButton
+              id="swap-btn"
+              onClick={onSwap}
+              title="Swap original and modified"
+              active={false}
+              theme={theme}
+            >
+              <ArrowLeftRight size={14} />
+            </ToolbarIconButton>
+            <ToolbarIconButton
               id="reset-btn"
               onClick={onReset}
               title="Reset"
@@ -167,46 +124,9 @@ export function Toolbar({
         )}
 
         {/* Theme Picker */}
-        <ThemePicker theme={theme} onSetTheme={onSetTheme} />
+        <ThemePicker theme={theme} selectedTheme={selectedTheme || theme} onSetTheme={onSetTheme} />
       </div>
     </header>
-  )
-}
-
-function ToolbarButton({
-  children,
-  active,
-  onClick,
-  theme,
-  title,
-  id,
-}: {
-  children: React.ReactNode
-  active: boolean
-  onClick: () => void
-  theme: Theme
-  title?: string
-  id?: string
-}) {
-  const isDark = theme !== 'light'
-  return (
-    <button
-      id={id}
-      onClick={onClick}
-      title={title}
-      className={cn(
-        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-        active
-          ? isDark
-            ? 'bg-white/10 text-white'
-            : 'bg-white text-gray-900 shadow-sm'
-          : isDark
-          ? 'text-surface-muted hover:text-white'
-          : 'text-gray-500 hover:text-gray-900'
-      )}
-    >
-      {children}
-    </button>
   )
 }
 
@@ -227,84 +147,48 @@ function ToolbarIconButton({
 }) {
   const isDark = theme !== 'light'
   return (
-    <button
-      id={id}
-      onClick={onClick}
-      title={title}
-      className={cn(
-        'p-2 rounded-md transition-colors duration-150',
-        active
-          ? isDark
-            ? 'text-white bg-white/10'
-            : 'text-gray-900 bg-gray-100'
-          : isDark
-          ? 'text-surface-muted hover:text-white hover:bg-white/5'
-          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ToggleChip({
-  label,
-  active,
-  onClick,
-  theme,
-  id,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-  theme: Theme
-  id?: string
-}) {
-  const isDark = theme !== 'light'
-  return (
-    <button
-      id={id}
-      onClick={onClick}
-      className={cn(
-        'px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150 hidden md:flex items-center gap-1',
-        active
-          ? isDark
-            ? 'bg-white/10 text-white'
-            : 'bg-gray-100 text-gray-900'
-          : isDark
-          ? 'text-surface-muted hover:text-white hover:bg-white/5'
-          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-      )}
-    >
-      <span
+    <div className="relative group flex items-center justify-center">
+      <button
+        id={id}
+        onClick={onClick}
         className={cn(
-          'w-1.5 h-1.5 rounded-full transition-colors',
-          active ? (isDark ? 'bg-white' : 'bg-gray-700') : isDark ? 'bg-surface-muted' : 'bg-gray-300'
+          'p-2 rounded-md transition-colors duration-150',
+          active
+            ? isDark
+              ? 'text-white bg-white/10'
+              : 'text-gray-900 bg-gray-100'
+            : isDark
+            ? 'text-surface-muted hover:text-white hover:bg-white/5'
+            : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
         )}
-      />
-      {label}
-    </button>
+      >
+        {children}
+      </button>
+      {title && (
+        <div 
+          className={cn(
+            "absolute top-full mt-2 left-1/2 -translate-x-1/2 pointer-events-none z-50 px-2.5 py-1.5 text-xs font-medium rounded-md opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 whitespace-nowrap shadow-xl border",
+            isDark 
+              ? "bg-surface-raised border-surface-border text-surface-muted group-hover:text-white" 
+              : "bg-white border-surfaceLight-border text-gray-500 group-hover:text-gray-900"
+          )}
+        >
+          {title}
+        </div>
+      )}
+    </div>
   )
 }
 
-function SplitIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <rect x="0" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
-      <rect x="7.5" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
-    </svg>
-  )
-}
-
-const THEMES: { id: Theme; label: string; swatch: string; desc: string }[] = [
+const THEMES: { id: Theme; label: string; swatch: string; desc: string; isSystem?: boolean }[] = [
   { id: 'dark',    label: 'Dark',    swatch: 'hsl(220 4% 14%)',  desc: 'Default dark' },
-  { id: 'dracula', label: 'Dracula', swatch: 'hsl(265 89% 60%)', desc: 'Purple-tinted dark' },
+  { id: 'dracula', label: 'Dracula', swatch: 'hsl(265 89% 50%)', desc: 'Purple-tinted dark' },
   { id: 'ocean',   label: 'Ocean',   swatch: 'hsl(213 60% 40%)', desc: 'Deep blue dark' },
   { id: 'light',   label: 'Light',   swatch: 'hsl(0 0% 90%)',    desc: 'Light mode' },
-  { id: 'skillz',  label: 'Skillz',  swatch: 'hsl(248 100% 71%)', desc: 'Electric dark' },
+  { id: 'skillz',  label: 'Skillz',  swatch: '#FFBF3B', desc: 'Vesper Golden' },
 ]
 
-function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Theme) => void }) {
+function ThemePicker({ theme, selectedTheme, onSetTheme }: { theme: Theme; selectedTheme: Theme; onSetTheme: (t: Theme) => void }) {
   const isDark = theme !== 'light'
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -318,13 +202,12 @@ function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Them
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const current = THEMES.find(t => t.id === theme)!
+  const current = THEMES.find(t => t.id === selectedTheme) || THEMES.find(t => t.id === theme)!
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative group flex items-center justify-center">
       <button
         onClick={() => setOpen(o => !o)}
-        title="Switch theme"
         className={cn(
           'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors duration-150',
           open
@@ -339,6 +222,18 @@ function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Them
         <Palette size={13} />
       </button>
 
+      <div 
+        className={cn(
+          "absolute top-full mt-2 right-0 pointer-events-none z-50 px-2.5 py-1.5 text-xs font-medium rounded-md opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 whitespace-nowrap shadow-xl border origin-top-right",
+          isDark 
+            ? "bg-surface-raised border-surface-border text-surface-muted group-hover:text-white" 
+            : "bg-white border-surfaceLight-border text-gray-500 group-hover:text-gray-900",
+          open && "hidden"
+        )}
+      >
+        Theme
+      </div>
+
       {open && (
         <div
           className={cn(
@@ -352,7 +247,7 @@ function ThemePicker({ theme, onSetTheme }: { theme: Theme; onSetTheme: (t: Them
             Theme
           </div>
           {THEMES.map(({ id, label, swatch, desc }) => {
-            const active = theme === id
+            const active = selectedTheme === id
             return (
               <button
                 key={id}

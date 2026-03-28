@@ -13,12 +13,12 @@
   }
 
   .dracula {
-    --surface: 231 15% 18%;
-    --surface-raised: 232 14% 21%;
-    --surface-border: 233 14% 31%;
-    --surface-muted: 231 10% 55%;
-    --scrollbar-thumb: hsl(232, 14%, 32%);
-    --scrollbar-track: hsl(231, 15%, 18%);
+    --surface: 231 15% 14%;
+    --surface-raised: 232 14% 17%;
+    --surface-border: 233 14% 26%;
+    --surface-muted: 231 10% 50%;
+    --scrollbar-thumb: hsl(232, 14%, 28%);
+    --scrollbar-track: hsl(231, 15% 14%);
   }
 
   .ocean {
@@ -36,12 +36,12 @@
   }
 
   .skillz {
-    --surface: 225 50% 6%;       /* #080C18 */
-    --surface-raised: 227 42% 9%; /* #0D1120 */
-    --surface-border: 230 29% 16%; /* #1E2236 */
-    --surface-muted: 224 17% 43%;  /* #5A6480 */
-    --scrollbar-thumb: #1E2236;
-    --scrollbar-track: #0D1120;
+    --surface: 30 11% 4%;       /* #0A0908 */
+    --surface-raised: 0 0% 6%;  /* #0D0C0C */
+    --surface-border: 0 0% 10%; /* #1A1A1A */
+    --surface-muted: 0 0% 31%;  /* #505050 */
+    --scrollbar-thumb: #343434;
+    --scrollbar-track: #0A0908;
   }
 
   * {
@@ -140,10 +140,10 @@
   .ocean .word-added { background-color: hsl(148, 50%, 16%); }
   .ocean .word-removed { background-color: hsl(355, 50%, 20%); }
 
-  .skillz .line-added { background-color: #4AE68A15; color: #4AE68A; border-left-color: #4AE68A50; }
-  .skillz .line-removed { background-color: #FF5C7A15; color: #FF5C7A; border-left-color: #FF5C7A50; }
-  .skillz .word-added { background-color: #4AE68A2a; }
-  .skillz .word-removed { background-color: #FF5C7A2a; }
+  .skillz .line-added { background-color: #12eeb315; color: #12eeb3; border-left-color: #12eeb350; }
+  .skillz .line-removed { background-color: #FF808015; color: #FF8080; border-left-color: #FF808050; }
+  .skillz .word-added { background-color: #12eeb330; }
+  .skillz .word-removed { background-color: #FF808030; }
 
   .light .word-added {
     background-color: hsl(142, 55%, 78%);
@@ -159,5 +159,14 @@
     @apply w-full h-full resize-none font-mono text-sm leading-relaxed outline-none bg-transparent;
     @apply placeholder:text-surface-muted;
     tab-size: 2;
+  }
+
+  @keyframes settings-in {
+    from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .animate-settings-in {
+    animation: settings-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 }

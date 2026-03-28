@@ -1,34 +1,37 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Maximize2, Minimize2, Map } from 'lucide-react'
+import { AlignLeft, Maximize2, Minimize2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AnimationModal } from './components/AnimationModal'
+import { DiffSettings, type DiffSettingsState } from './components/DiffSettings'
+import { SideBySideDiffViewer, UnifiedDiffViewer } from './components/DiffViewer'
+import { EditorPanel } from './components/EditorPanel'
+import { Toolbar, type ViewMode } from './components/Toolbar'
+import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
-import { Toolbar, type ViewMode } from './components/Toolbar'
-import { DiffStatsBar } from './components/DiffStats'
-import { EditorPanel } from './components/EditorPanel'
-import { UnifiedDiffViewer, SideBySideDiffViewer } from './components/DiffViewer'
-import { AnimationModal } from './components/AnimationModal'
 import { cn } from './lib/utils'
-
-// @ts-ignore - Vite specific
+// @ts-expect-error - Vite specific
 const rawFiles = import.meta.glob('../dump/examples/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const file1 = rawFiles['../dump/examples/file1.txt'] || ''
 const file2 = rawFiles['../dump/examples/file2.txt'] || ''
 
 export default function App() {
-  const { theme, setTheme } = useTheme()
-  const isDark = theme !== 'light'
+  const { theme, selectedTheme, setTheme, isDark } = useTheme()
 
   const [original, setOriginal] = useState(file1)
   const [modified, setModified] = useState(file2)
   const [originalFileName, setOriginalFileName] = useState<string>()
   const [modifiedFileName, setModifiedFileName] = useState<string>()
 
-  const [viewMode, setViewMode] = useState<ViewMode>('split')
-  const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
-  const [wrapLines, setWrapLines] = useState(true)
+  const [viewMode, setViewMode] = useLocalStorage<ViewMode>('diffViewMode', 'split')
+  const [diffSettings, setDiffSettings] = useLocalStorage<DiffSettingsState>('diffSettings', {
+    ignoreWhitespace: false,
+    ignoreCase: false,
+    ignoreEmptyLines: false,
+    ignoreLineEndings: false,
+    showMinimap: false,
+  })
   const [showAnimation, setShowAnimation] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [showMinimap, setShowMinimap] = useState(true)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -49,8 +52,8 @@ export default function App() {
   }, [])
 
   const { lines, stats } = useMemo(
-    () => computeLineDiff(original, modified, ignoreWhitespace),
-    [original, modified, ignoreWhitespace]
+    () => computeLineDiff(original, modified, diffSettings.ignoreWhitespace, diffSettings),
+    [original, modified, diffSettings]
   )
 
   const { left: leftLines, right: rightLines } = useMemo(
@@ -65,6 +68,13 @@ export default function App() {
     setModified('')
     setOriginalFileName(undefined)
     setModifiedFileName(undefined)
+  }
+
+  const handleSwap = () => {
+    setOriginal(modified)
+    setModified(original)
+    setOriginalFileName(modifiedFileName)
+    setModifiedFileName(originalFileName)
   }
 
   const getDiffText = useCallback(() => {
@@ -86,20 +96,15 @@ export default function App() {
     >
       <Toolbar
         theme={theme}
+        selectedTheme={selectedTheme}
         onSetTheme={setTheme}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        ignoreWhitespace={ignoreWhitespace}
-        onIgnoreWhitespaceChange={setIgnoreWhitespace}
-        wrapLines={wrapLines}
-        onWrapLinesChange={setWrapLines}
+        onSwap={handleSwap}
         onReset={handleReset}
         getDiffText={getDiffText}
         hasContent={hasContent}
         onAnimate={() => setShowAnimation(true)}
+        stats={stats}
       />
-
-      {hasContent && <DiffStatsBar stats={stats} theme={theme} />}
 
       {/* Input Panels */}
       <div
@@ -156,27 +161,46 @@ export default function App() {
       {/* Diff Output */}
       <div className={cn('flex-1 overflow-hidden px-4 py-3 flex flex-col gap-1')}>
         <div className="flex justify-between items-center mb-1.5 px-0.5">
-          <div
-            className={cn(
-              'text-xs font-semibold uppercase tracking-widest',
-              isDark ? 'text-surface-muted' : 'text-gray-400'
-            )}
-          >
-            {viewMode === 'unified' ? 'Unified Diff' : 'Split Diff'}
+          {/* Left: view mode toggle + ignore whitespace */}
+          <div className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                'flex items-center rounded-lg p-0.5 gap-0.5',
+                isDark ? 'bg-surface-border/50' : 'bg-gray-100'
+              )}
+            >
+              <button
+                id="view-unified-diff"
+                onClick={() => setViewMode('unified')}
+                title="Unified view"
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150',
+                  viewMode === 'unified'
+                    ? isDark ? 'bg-white/10 text-white' : 'bg-white text-gray-900 shadow-sm'
+                    : isDark ? 'text-surface-muted hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                )}
+              >
+                <AlignLeft size={12} />
+                <span>Unified</span>
+              </button>
+              <button
+                id="view-split-diff"
+                onClick={() => setViewMode('split')}
+                title="Split view"
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150',
+                  viewMode === 'split'
+                    ? isDark ? 'bg-white/10 text-white' : 'bg-white text-gray-900 shadow-sm'
+                    : isDark ? 'text-surface-muted hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                )}
+              >
+                <SplitMiniIcon />
+                <span>Split</span>
+              </button>
+            </div>
+
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowMinimap(!showMinimap)}
-              className={cn(
-                "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors border",
-                isDark 
-                  ? "text-surface-muted hover:text-white hover:bg-surface-raised border-transparent hover:border-surfaceLight-border/20 bg-surface" 
-                  : "text-gray-500 hover:text-gray-900 border-transparent hover:bg-gray-50 bg-white"
-              )}
-              title={showMinimap ? "Hide Minimap" : "Show Minimap"}
-            >
-              <Map size={13} /> Minimap
-            </button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={cn(
@@ -209,6 +233,11 @@ export default function App() {
               </>
             )}
           </button>
+            <DiffSettings
+              settings={diffSettings}
+              onChange={setDiffSettings}
+              isDark={isDark}
+            />
           </div>
         </div>
 
@@ -219,13 +248,13 @@ export default function App() {
           )}
         >
           {viewMode === 'unified' ? (
-            <UnifiedDiffViewer lines={lines} wrapLines={wrapLines} showMinimap={showMinimap} />
+            <UnifiedDiffViewer lines={lines} wrapLines={true} showMinimap={diffSettings.showMinimap} />
           ) : (
             <SideBySideDiffViewer
               leftLines={leftLines}
               rightLines={rightLines}
-              wrapLines={wrapLines}
-              showMinimap={showMinimap}
+              wrapLines={true}
+              showMinimap={diffSettings.showMinimap}
             />
           )}
         </div>
@@ -241,5 +270,14 @@ export default function App() {
         />
       )}
     </div>
+  )
+}
+
+function SplitMiniIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 13 13" fill="none">
+      <rect x="0" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
+      <rect x="7.5" y="0" width="5.5" height="13" rx="1.5" fill="currentColor" opacity="0.7" />
+    </svg>
   )
 }

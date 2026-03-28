@@ -4,21 +4,32 @@ export type Theme = 'dark' | 'dracula' | 'ocean' | 'light' | 'skillz'
 
 const ALL_THEMES: Theme[] = ['dark', 'dracula', 'ocean', 'light', 'skillz']
 
+const getSystemTheme = (): Theme => {
+  if (typeof window === 'undefined') return 'dark'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem('diff-theme') as Theme | null
-    if (stored && ALL_THEMES.includes(stored)) return stored
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const [selectedTheme, setSelected] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'dark'
+    const stored = localStorage.getItem('diff-theme')
+    if (stored === 'system') return getSystemTheme()
+    if (stored && ALL_THEMES.includes(stored as Theme)) return stored as Theme
+    return getSystemTheme()
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove(...ALL_THEMES)
-    root.classList.add(theme)
-    localStorage.setItem('diff-theme', theme)
-  }, [theme])
+    const applyTheme = () => {
+      const root = document.documentElement
+      root.classList.remove('dark', 'dracula', 'ocean', 'light', 'skillz')
+      root.classList.add(selectedTheme)
+      localStorage.setItem('diff-theme', selectedTheme)
+    }
 
-  const setTheme = (t: Theme) => setThemeState(t)
+    applyTheme()
+  }, [selectedTheme])
 
-  return { theme, setTheme }
+  const setTheme = (t: Theme) => setSelected(t)
+
+  return { theme: selectedTheme, selectedTheme, setTheme, isDark: selectedTheme !== 'light' }
 }
