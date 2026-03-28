@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --scrollbar-thumb: hsl(220, 4%, 22%);
+    --scrollbar-track: hsl(220, 4%, 9%);
+  }
+
+  .light {
+    --scrollbar-thumb: hsl(220, 13%, 78%);
+    --scrollbar-track: hsl(0, 0%, 95%);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    @apply bg-surface text-white;
+    @apply transition-colors duration-300;
+  }
+
+  .light body, body.light {
+    @apply bg-surfaceLight text-gray-900;
+  }
+}
+
+@layer components {
+  .diff-line {
+    @apply flex items-stretch w-full min-h-[1.75rem] font-mono text-sm leading-relaxed;
+  }
+
+  .diff-line-number {
+    @apply select-none text-right pr-3 pl-2 min-w-[3rem] text-xs leading-7 opacity-40 border-r border-surface-border/50 shrink-0;
+  }
+
+  .diff-line-content {
+    @apply px-4 whitespace-pre-wrap break-all flex-1 py-0.5 leading-7;
+  }
+
+  .line-added {
+    @apply bg-added-bg text-added-text border-l-2 border-added-border;
+  }
+
+  .line-added .diff-line-number {
+    @apply border-added-border/40;
+  }
+
+  .line-removed {
+    @apply bg-removed-bg text-removed-text border-l-2 border-removed-border;
+  }
+
+  .line-removed .diff-line-number {
+    @apply border-removed-border/40;
+  }
+
+  .line-equal {
+    @apply border-l-2 border-transparent;
+  }
+
+  .dark .line-added { background-color: hsl(142, 60%, 10%); color: hsl(142, 70%, 60%); border-left-color: hsl(142, 60%, 25%); }
+  .dark .line-removed { background-color: hsl(0, 60%, 10%); color: hsl(0, 70%, 65%); border-left-color: hsl(0, 60%, 25%); }
+
+  .light .line-added { background-color: hsl(142, 50%, 93%); color: hsl(142, 55%, 28%); border-left-color: hsl(142, 50%, 60%); }
+  .light .line-added .diff-line-number { color: hsl(142, 55%, 38%); }
+  .light .line-removed { background-color: hsl(0, 50%, 94%); color: hsl(0, 55%, 38%); border-left-color: hsl(0, 50%, 65%); }
+  .light .line-removed .diff-line-number { color: hsl(0, 55%, 45%); }
+  .light .line-equal { color: hsl(220, 10%, 35%); }
+
+  .word-added {
+    @apply rounded px-0.5;
+    background-color: hsl(142, 65%, 22%);
+  }
+
+  .word-removed {
+    @apply rounded px-0.5;
+    background-color: hsl(0, 65%, 24%);
+  }
+
+  .light .word-added {
+    background-color: hsl(142, 55%, 78%);
+    color: hsl(142, 60%, 20%);
+  }
+
+  .light .word-removed {
+    background-color: hsl(0, 55%, 83%);
+    color: hsl(0, 60%, 28%);
+  }
+
+  .panel-textarea {
+    @apply w-full h-full resize-none font-mono text-sm leading-relaxed outline-none bg-transparent;
+    @apply placeholder:text-surface-muted;
+    tab-size: 2;
+  }
+}
