@@ -5,10 +5,16 @@
 </div>
 
 <div align="center">
-  <img src="./assets/screenshot.png" alt="DiffCompare Dark Theme" width="100%"/>
+  <img src="./assets/screenshot-void-collapsed.png" alt="DiffCompare Void Theme Collapsed View" width="100%"/>
   <br/>
   <br/>
-  <img src="./assets/screenshot-light.png" alt="DiffCompare Light Theme" width="100%"/>
+  <img src="./assets/screenshot-void-expanded.png" alt="DiffCompare Void Theme Expanded View" width="100%"/>
+  <br/>
+  <br/>
+  <img src="./assets/screenshot-white-collapsed.png" alt="DiffCompare White Theme Collapsed View" width="100%"/>
+  <br/>
+  <br/>
+  <img src="./assets/screenshot-white-expanded.png" alt="DiffCompare White Theme Expanded View" width="100%"/>
 </div>
 
 ---
@@ -20,10 +26,12 @@
 - **Multiple Diff Views**: Choose between Split (Side-by-side) and Unified view modes.
 - **File Upload & Editing**: Load text or code files directly, or write/paste content into the Original and Modified editor panels.
 - **Diff Statistics**: Visual summary of added, removed, and unchanged lines.
-- **Ignore Whitespace**: A handy toggle to ignore or include whitespace changes in comparisons.
+- **Advanced Diff Settings**: Fine-tune comparisons with toggles to ignore whitespace, case, empty lines, and line endings.
 - **Minimap Support**: Navigate through long files easily using the built-in minimap.
 - **Expand/Collapse View**: A distraction-free, expanded view of the diff layout complete with keyboard shortcut access (`Cmd/Ctrl + E`).
-- **Copy Functionality**: Allows one-click copying of original text, modified text, and full diff outputs.
+- **Copy Functionality**: Allows one-click copying of the full diff output.
+- **Swap**: Instantly swap the Original and Modified panels with a single click.
+- **P2P Live Sharing**: Share your diff with anyone via a generated link — powered by WebRTC (PeerJS). No server, no sign-in. The recipient opens the link and the diff loads instantly.
 - **Multiple Color Themes**: Work comfortably with Dark, Light, Dracula, Ocean, and Skillz themes.
 - **Animated Diff Replay**: Render an animated replay of your diffs using the fully integrated Remotion animation modal.
 
@@ -37,7 +45,7 @@ Here's a high-level overview of the project structure:
 ├── dump               # Dump files/Examples for testing
 ├── src
 │   ├── components     # All reusable React components and toolbars
-│   ├── hooks          # Application hooks (Themes, diff algorithms)
+│   ├── hooks          # Application hooks (themes, diff algorithms, P2P sharing)
 │   ├── lib            # Utility functions and core diff logic
 │   ├── App.tsx        # Main application layout component
 │   ├── index.css      # Core tailwind stylesheet
@@ -52,7 +60,7 @@ Make sure you have [Bun](https://bun.sh/) installed. Follow these steps to run t
 
 ```bash
 # Clone the repository
-git clone https://github.com/narayann7/diff-compare.git
+git clone https://github.com/EveryDayApps/diff-compare.git
 
 # Change directory
 cd diff-compare
@@ -73,6 +81,7 @@ bun run build
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) — A utility-first CSS framework for rapid UI development.
 - [Lucide React](https://github.com/lucide-icons/lucide) — Beautiful & consistent icons toolkit.
 - [Remotion](https://github.com/remotion-dev/remotion) — Create videos programmatically using React.
+- [PeerJS](https://github.com/peers/peerjs) — Simplified WebRTC peer-to-peer data connections for live diff sharing.
 - [Bun](https://github.com/oven-sh/bun) — Fast all-in-one JavaScript runtime.
 
 ## 📚️ Roadmap
@@ -86,11 +95,14 @@ bun run build
 - Syntax and theme aesthetic inspirations drawn from modern developer tooling.
 
 ## ‍💻 Author
-- [@narayann7](https://github.com/narayann7)
+- [@narayann7](https://github.com/narayann7) — maintained under [EveryDayApps](https://github.com/EveryDayApps)
+
+## 🌐 Live
+- [diffcompare.narayann.dev](https://diffcompare.narayann.dev/)
 
 ## ⭐️ Contribute
 If you find this project useful or want to support its active development:
-1. Add a GitHub Star to the project.
+1. Add a GitHub Star to the [repository](https://github.com/EveryDayApps/diff-compare).
 2. Share the repository on Twitter/LinkedIn.
 3. Open an issue or submit a Pull Request with your improvements.
 4. Support the project by dropping feedback in the discussions!
