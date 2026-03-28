@@ -1,0 +1,25 @@
+# Source (compiled output goes into dist/)
+src/
+dump/
+docs/
+skills-lock.json
+
+# Config & tooling
+.eslintrc.cjs
+postcss.config.js
+tailwind.config.js
+tsconfig*.json
+vite.config.ts
+esbuild.extension.mjs
+firebase.json
+.firebaserc
+
+# Dev artefacts
+node_modules/
+.github/
+.agents/
+.claude/
+.firebase/
+bun.lock
+
+# The built webview is needed at runtime, including assets

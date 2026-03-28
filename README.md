@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/icon.svg" alt="DiffCompare Icon" width="100"/>
+  <img src="./assets/icon.png" alt="DiffCompare Icon" width="100"/>
   <h1>DiffCompare</h1>
   <p>A minimal, clean, and responsive tool to compare code and text files seamlessly.</p>
 </div>
@@ -32,7 +32,7 @@ Here's a high-level overview of the project structure:
 
 ```text
 .
-├── assets             # Static graphical assets (like the SVG icon)
+├── assets             # Static graphical assets
 ├── docs               # Documentation files (e.g., features, todo lists)
 ├── dump               # Dump files/Examples for testing
 ├── src

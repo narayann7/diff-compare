@@ -9,6 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './hooks/useTheme'
 import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
 import { cn } from './lib/utils'
+import { isVsCode, onHostMessage } from './webview/vscode-bridge'
 // @ts-expect-error - Vite specific
 const rawFiles = import.meta.glob('../dump/examples/*.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const file1 = rawFiles['../dump/examples/file1.txt'] || ''
@@ -33,6 +34,32 @@ export default function App() {
   const [showAnimation, setShowAnimation] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
 
+  // Receive file content and theme messages from the VSCode extension host.
+  // No-op when running as a plain web app.
+  useEffect(() => {
+    if (!isVsCode()) return
+    return onHostMessage((msg) => {
+      if (msg.type === 'fileContent') {
+        if (msg.side === 'left') {
+          setOriginal(msg.content)
+          setOriginalFileName(msg.name)
+        } else {
+          setModified(msg.content)
+          setModifiedFileName(msg.name)
+        }
+      } else if (msg.type === 'init' && msg.fileContent) {
+        const { side, name, content } = msg.fileContent
+        if (side === 'left') {
+          setOriginal(content)
+          if (name) setOriginalFileName(name)
+        } else {
+          setModified(content)
+          if (name) setModifiedFileName(name)
+        }
+      }
+    })
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
@@ -46,7 +73,7 @@ export default function App() {
 
   const shortcutText = useMemo(() => {
     if (typeof navigator !== 'undefined') {
-      return /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘E' : 'Ctrl+E'
+      return /Mac|iPod|iPhone|iPad/.test(navigator.userAgent) ? '⌘E' : 'Ctrl+E'
     }
     return '⌘E'
   }, [])

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Upload, X, Copy, Check } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { type Theme } from '../hooks/useTheme'
+import { isVsCode, postMessageToHost } from '../webview/vscode-bridge'
 
 interface EditorPanelProps {
   label: string
@@ -172,7 +173,13 @@ function CopyButton({ value, side, isDark }: { value: string; side: string; isDa
 
   const handleCopy = async () => {
     if (!value) return
-    await navigator.clipboard.writeText(value)
+    if (isVsCode()) {
+      // Route through the extension host — webview clipboard requires user gesture
+      // handling that the host provides via vscode.env.clipboard
+      postMessageToHost({ type: 'copyToClipboard', text: value })
+    } else {
+      await navigator.clipboard.writeText(value)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

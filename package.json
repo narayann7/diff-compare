@@ -1,14 +1,65 @@
 {
   "name": "diff-compare",
-  "private": true,
-  "version": "0.0.0",
+  "displayName": "DiffCompare",
+  "description": "Free, minimal, open-source diff compare tool — compare text, code, and files side-by-side or in unified view.",
+  "version": "0.1.0",
   "type": "module",
+  "publisher": "narayann7",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/narayann7/diff-compare"
+  },
+  "icon": "assets/icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["diff", "compare", "text", "code", "file"],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "diffCompare.open",
+        "title": "DiffCompare: Open"
+      },
+      {
+        "command": "diffCompare.openWithActive",
+        "title": "DiffCompare: Open with Active Editor"
+      },
+      {
+        "command": "diffCompare.compareFiles",
+        "title": "Compare with DiffCompare"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "diffCompare.open",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorFocus"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "diffCompare.compareFiles",
+          "when": "listMultiSelection",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build:webview": "tsc && vite build",
+    "build:ext": "node esbuild.extension.mjs",
+    "build": "npm run build:webview && npm run build:ext",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "deploy": "bun run build && firebase deploy"
+    "deploy": "npm run build:webview && firebase deploy",
+    "package": "npm run build && vsce package",
+    "publish": "npm run build && vsce publish"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -27,12 +78,16 @@
   },
   "devDependencies": {
     "@types/diff": "^5.2.1",
+    "@types/node": "^25.5.0",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
+    "@types/vscode": "~1.80.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vscode/vsce": "^3.7.1",
     "autoprefixer": "^10.4.18",
+    "esbuild": "^0.27.4",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
@@ -40,5 +95,11 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
     "vite": "^5.1.4"
+  },
+  "resolutions": {
+    "undici": "5.28.4"
+  },
+  "overrides": {
+    "undici": "5.28.4"
   }
 }
