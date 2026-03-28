@@ -5,10 +5,16 @@
 </div>
 
 <div align="center">
-  <img src="./assets/screenshot.png" alt="DiffCompare Dark Theme" width="100%"/>
+  <img src="./assets/screenshot-void-collapsed.png" alt="DiffCompare Void Theme Collapsed View" width="100%"/>
   <br/>
   <br/>
-  <img src="./assets/screenshot-light.png" alt="DiffCompare Light Theme" width="100%"/>
+  <img src="./assets/screenshot-void-expanded.png" alt="DiffCompare Void Theme Expanded View" width="100%"/>
+  <br/>
+  <br/>
+  <img src="./assets/screenshot-white-collapsed.png" alt="DiffCompare White Theme Collapsed View" width="100%"/>
+  <br/>
+  <br/>
+  <img src="./assets/screenshot-white-expanded.png" alt="DiffCompare White Theme Expanded View" width="100%"/>
 </div>
 
 ---
@@ -54,7 +60,7 @@ Make sure you have [Bun](https://bun.sh/) installed. Follow these steps to run t
 
 ```bash
 # Clone the repository
-git clone https://github.com/narayann7/diff-compare.git
+git clone https://github.com/EveryDayApps/diff-compare.git
 
 # Change directory
 cd diff-compare
@@ -89,11 +95,14 @@ bun run build
 - Syntax and theme aesthetic inspirations drawn from modern developer tooling.
 
 ## ‍💻 Author
-- [@narayann7](https://github.com/narayann7)
+- [@narayann7](https://github.com/narayann7) — maintained under [EveryDayApps](https://github.com/EveryDayApps)
+
+## 🌐 Live
+- [diffcompare.narayann.dev](https://diffcompare.narayann.dev/)
 
 ## ⭐️ Contribute
 If you find this project useful or want to support its active development:
-1. Add a GitHub Star to the project.
+1. Add a GitHub Star to the [repository](https://github.com/EveryDayApps/diff-compare).
 2. Share the repository on Twitter/LinkedIn.
 3. Open an issue or submit a Pull Request with your improvements.
 4. Support the project by dropping feedback in the discussions!

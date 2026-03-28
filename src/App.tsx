@@ -1,5 +1,5 @@
 import { AlignLeft, Maximize2, Minimize2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimationModal } from './components/AnimationModal'
 import { DiffSettings, type DiffSettingsState } from './components/DiffSettings'
 import { SideBySideDiffViewer, UnifiedDiffViewer } from './components/DiffViewer'
@@ -99,16 +99,6 @@ export default function App() {
     setModifiedFileName(originalFileName)
   }
 
-  const getDiffText = useCallback(() => {
-    return lines
-      .map((l) => {
-        if (l.type === 'added') return '+ ' + l.content
-        if (l.type === 'removed') return '- ' + l.content
-        return '  ' + l.content
-      })
-      .join('\n')
-  }, [lines])
-
   return (
     <div
       className={cn(
@@ -122,7 +112,6 @@ export default function App() {
         onSetTheme={setTheme}
         onSwap={handleSwap}
         onReset={handleReset}
-        getDiffText={getDiffText}
         hasContent={hasContent}
         stats={stats}
         shareState={shareState}
