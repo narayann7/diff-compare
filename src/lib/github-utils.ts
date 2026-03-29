@@ -15,6 +15,7 @@ export interface CommitFile {
   deletions: number
   original: string
   modified: string
+  rawPatch?: string
 }
 
 export interface CommitInfo {
@@ -140,6 +141,7 @@ async function fetchGitHubCommit(url: string): Promise<CommitInfo> {
       deletions: f.deletions,
       original,
       modified,
+      rawPatch: f.patch,
     }
   })
 
@@ -219,6 +221,7 @@ async function fetchGitLabCommit(url: string): Promise<CommitInfo> {
       deletions,
       original,
       modified,
+      rawPatch: d.diff,
     }
   })
 
@@ -248,4 +251,282 @@ export async function fetchCommit(url: string): Promise<CommitInfo> {
   if (platform === 'github') return fetchGitHubCommit(trimmed)
   if (platform === 'gitlab') return fetchGitLabCommit(trimmed)
   throw new Error('Unsupported URL. Paste a GitHub or GitLab commit URL.')
+}
+
+export interface LineComment {
+  id: string | number
+  filename: string
+  lineNumber: number
+  side: 'left' | 'right'
+  body: string
+  author: string
+  createdAt: string
+  url: string
+}
+
+function buildPatchPositionMap(rawPatch: string): {
+  posToLine: Map<number, { lineLeft: number | null; lineRight: number | null; type: string }>
+  lineToPos: Map<string, number>
+} {
+  const posToLine = new Map<number, { lineLeft: number | null; lineRight: number | null; type: string }>()
+  const lineToPos = new Map<string, number>()
+  let pos = 0
+  // Use content-relative counters (start at 0, increment per content line)
+  // so they match DiffLine.lineNumberLeft/Right produced by computeLineDiff
+  let left = 0
+  let right = 0
+
+  for (const line of rawPatch.split('\n')) {
+    if (line.startsWith('@@')) {
+      pos++
+      // Do NOT reset left/right from the hunk header — keep content-relative counting
+    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      right++
+      pos++
+      posToLine.set(pos, { lineLeft: null, lineRight: right, type: 'added' })
+      lineToPos.set(`right:${right}`, pos)
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+      left++
+      pos++
+      posToLine.set(pos, { lineLeft: left, lineRight: null, type: 'removed' })
+      lineToPos.set(`left:${left}`, pos)
+    } else if (line !== '' && !line.startsWith('\\')) {
+      left++
+      right++
+      pos++
+      posToLine.set(pos, { lineLeft: left, lineRight: right, type: 'equal' })
+      lineToPos.set(`left:${left}`, pos)
+      lineToPos.set(`right:${right}`, pos)
+    }
+  }
+
+  return { posToLine, lineToPos }
+}
+
+export async function postCommitComment(
+  commitInfo: CommitInfo,
+  filename: string,
+  rawPatch: string | undefined,
+  diffLine: import('./diff-utils').DiffLine,
+  body: string
+): Promise<LineComment> {
+  if (commitInfo.platform === 'github') {
+    return postGitHubCommitComment(commitInfo, filename, rawPatch, diffLine, body)
+  }
+  return postGitLabCommitComment(commitInfo, filename, diffLine, body)
+}
+
+async function postGitHubCommitComment(
+  commitInfo: CommitInfo,
+  filename: string,
+  rawPatch: string | undefined,
+  diffLine: import('./diff-utils').DiffLine,
+  body: string
+): Promise<LineComment> {
+  const match = commitInfo.repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/)
+  if (!match) throw new Error('Invalid GitHub repo URL')
+  const [, owner, repo] = match
+
+  let position: number | undefined
+  if (rawPatch) {
+    const { lineToPos } = buildPatchPositionMap(rawPatch)
+    if (diffLine.type === 'removed' && diffLine.lineNumberLeft) {
+      position = lineToPos.get(`left:${diffLine.lineNumberLeft}`)
+    } else if (diffLine.lineNumberRight) {
+      position = lineToPos.get(`right:${diffLine.lineNumberRight}`)
+    } else if (diffLine.lineNumberLeft) {
+      position = lineToPos.get(`left:${diffLine.lineNumberLeft}`)
+    }
+  }
+
+  const token = getGitHubToken()
+  if (!token) throw new AuthRequiredError('Add a GitHub token to post comments.')
+
+  const reqBody: Record<string, unknown> = { body, path: filename }
+  if (position !== undefined) reqBody.position = position
+
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/commits/${commitInfo.sha}/comments`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(reqBody),
+    }
+  )
+
+  if (!res.ok) {
+    if (res.status === 401) throw new AuthRequiredError('Authentication failed. Check your GitHub token.')
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`Failed to post comment: ${(err as { message?: string }).message ?? res.status}`)
+  }
+
+  const data = await res.json()
+  return {
+    id: data.id,
+    filename,
+    lineNumber: diffLine.lineNumberRight ?? diffLine.lineNumberLeft ?? 0,
+    side: diffLine.type === 'removed' ? 'left' : 'right',
+    body: data.body,
+    author: data.user.login,
+    createdAt: data.created_at,
+    url: data.html_url,
+  }
+}
+
+async function postGitLabCommitComment(
+  commitInfo: CommitInfo,
+  filename: string,
+  diffLine: import('./diff-utils').DiffLine,
+  body: string
+): Promise<LineComment> {
+  const parsed = parseGitLabCommitUrl(`${commitInfo.repoUrl}/-/commit/${commitInfo.sha}`)
+  if (!parsed) throw new Error('Invalid GitLab URL')
+  const { baseUrl, projectPath } = parsed
+  const encodedPath = encodeURIComponent(projectPath)
+
+  const token = getGitLabToken(baseUrl)
+  if (!token) throw new AuthRequiredError('Add a GitLab token to post comments.')
+
+  const lineNumber = diffLine.type === 'removed'
+    ? (diffLine.lineNumberLeft ?? 1)
+    : (diffLine.lineNumberRight ?? diffLine.lineNumberLeft ?? 1)
+  const lineType = diffLine.type === 'removed' ? 'old' : 'new'
+
+  const res = await fetch(
+    `${baseUrl}/api/v4/projects/${encodedPath}/repository/commits/${commitInfo.sha}/comments`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'PRIVATE-TOKEN': token,
+      },
+      body: JSON.stringify({ note: body, path: filename, line: lineNumber, line_type: lineType }),
+    }
+  )
+
+  if (!res.ok) {
+    if (res.status === 401) throw new AuthRequiredError('Authentication failed. Check your GitLab token.')
+    throw new Error(`Failed to post comment (${res.status})`)
+  }
+
+  const data = await res.json()
+  return {
+    id: data.id ?? `gl-${Date.now()}`,
+    filename,
+    lineNumber,
+    side: diffLine.type === 'removed' ? 'left' : 'right',
+    body: data.note,
+    author: data.author?.name ?? data.author?.username ?? 'Unknown',
+    createdAt: data.created_at,
+    url: `${commitInfo.repoUrl}/-/commit/${commitInfo.sha}`,
+  }
+}
+
+export async function fetchCommitComments(commitInfo: CommitInfo): Promise<LineComment[]> {
+  if (commitInfo.platform === 'github') return fetchGitHubCommitComments(commitInfo)
+  return fetchGitLabCommitComments(commitInfo)
+}
+
+async function fetchGitHubCommitComments(commitInfo: CommitInfo): Promise<LineComment[]> {
+  const match = commitInfo.repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/)
+  if (!match) return []
+  const [, owner, repo] = match
+
+  const token = getGitHubToken()
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/commits/${commitInfo.sha}/comments`,
+    {
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  )
+
+  if (!res.ok) return []
+
+  const patchMaps = new Map<string, ReturnType<typeof buildPatchPositionMap>>()
+  for (const file of commitInfo.files) {
+    if (file.rawPatch) patchMaps.set(file.filename, buildPatchPositionMap(file.rawPatch))
+  }
+
+  const data: {
+    id: number
+    path: string | null
+    position: number | null
+    line: number | null
+    body: string
+    user: { login: string }
+    created_at: string
+    html_url: string
+  }[] = await res.json()
+
+  return data
+    .filter(c => c.path !== null)
+    .map(c => {
+      let lineNumber = c.line ?? 0
+      let side: 'left' | 'right' = 'right'
+      if (!lineNumber && c.position && c.path) {
+        const map = patchMaps.get(c.path)
+        if (map) {
+          const info = map.posToLine.get(c.position)
+          if (info) {
+            lineNumber = info.lineRight ?? info.lineLeft ?? 0
+            side = info.lineRight ? 'right' : 'left'
+          }
+        }
+      }
+      return {
+        id: c.id,
+        filename: c.path!,
+        lineNumber,
+        side,
+        body: c.body,
+        author: c.user.login,
+        createdAt: c.created_at,
+        url: c.html_url,
+      }
+    })
+    .filter(c => c.lineNumber > 0)
+}
+
+async function fetchGitLabCommitComments(commitInfo: CommitInfo): Promise<LineComment[]> {
+  const parsed = parseGitLabCommitUrl(`${commitInfo.repoUrl}/-/commit/${commitInfo.sha}`)
+  if (!parsed) return []
+  const { baseUrl, projectPath } = parsed
+  const encodedPath = encodeURIComponent(projectPath)
+
+  const token = getGitLabToken(baseUrl)
+  const res = await fetch(
+    `${baseUrl}/api/v4/projects/${encodedPath}/repository/commits/${commitInfo.sha}/comments`,
+    { headers: token ? { 'PRIVATE-TOKEN': token } : {} }
+  )
+
+  if (!res.ok) return []
+
+  const data: {
+    note: string
+    path: string
+    line: number
+    line_type: 'new' | 'old'
+    author: { name: string; username: string }
+    created_at: string
+  }[] = await res.json()
+
+  return data
+    .filter(c => c.path)
+    .map((c, i) => ({
+      id: `gl-${i}-${Date.now()}`,
+      filename: c.path,
+      lineNumber: c.line,
+      side: c.line_type === 'old' ? 'left' : ('right' as 'left' | 'right'),
+      body: c.note,
+      author: c.author?.name ?? c.author?.username ?? 'Unknown',
+      createdAt: c.created_at,
+      url: `${commitInfo.repoUrl}/-/commit/${commitInfo.sha}`,
+    }))
 }

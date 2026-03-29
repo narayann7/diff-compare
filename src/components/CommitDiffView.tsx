@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { type DiffLine, type DiffStats } from '../lib/diff-utils'
-import { type CommitFile } from '../lib/github-utils'
+import { type CommitFile, type LineComment } from '../lib/github-utils'
 import { cn } from '../lib/utils'
 import { SideBySideDiffViewer, UnifiedDiffViewer } from './DiffViewer'
 import { type FileDisplayMode } from '../lib/github-utils'
@@ -25,6 +25,8 @@ interface CommitDiffViewProps {
   isDark: boolean
   stackedControlsRef?: { current: StackedControls | null }
   onStackedExpandedChange?: (allExpanded: boolean) => void
+  comments?: LineComment[]
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
 }
 
 export function CommitDiffView({
@@ -37,11 +39,13 @@ export function CommitDiffView({
   isDark,
   stackedControlsRef,
   onStackedExpandedChange,
+  comments,
+  onSubmitComment,
 }: CommitDiffViewProps) {
   if (files.length === 0) return null
 
   if (displayMode === 'stacked') {
-    return <StackedView files={files} viewMode={viewMode} isDark={isDark} controlsRef={stackedControlsRef} onExpandedChange={onStackedExpandedChange} />
+    return <StackedView files={files} viewMode={viewMode} isDark={isDark} controlsRef={stackedControlsRef} onExpandedChange={onStackedExpandedChange} comments={comments} onSubmitComment={onSubmitComment} />
   }
 
   const activeFile = files[activeFileIndex] ?? files[0]
@@ -57,7 +61,7 @@ export function CommitDiffView({
         />
       )}
       <div className="flex-1 overflow-hidden">
-        <DiffContent file={activeFile} viewMode={viewMode} showMinimap={showMinimap} />
+        <DiffContent file={activeFile} viewMode={viewMode} showMinimap={showMinimap} comments={comments} onSubmitComment={onSubmitComment} isDark={isDark} />
       </div>
     </div>
   )
@@ -106,12 +110,14 @@ function FileTabs({ files, activeIndex, onSelect, isDark }: {
   )
 }
 
-function StackedView({ files, viewMode, isDark, controlsRef, onExpandedChange }: {
+function StackedView({ files, viewMode, isDark, controlsRef, onExpandedChange, comments, onSubmitComment }: {
   files: CommitFileDiff[]
   viewMode: ViewMode
   isDark: boolean
   controlsRef?: { current: StackedControls | null }
   onExpandedChange?: (allExpanded: boolean) => void
+  comments?: LineComment[]
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
 }) {
   const defaultOpen = files.length <= 4
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() =>
@@ -148,6 +154,8 @@ function StackedView({ files, viewMode, isDark, controlsRef, onExpandedChange }:
             isDark={isDark}
             isOpen={!!openMap[file.filename]}
             onToggle={() => toggle(file.filename)}
+            comments={comments}
+            onSubmitComment={onSubmitComment}
           />
         ))}
       </div>
@@ -155,12 +163,14 @@ function StackedView({ files, viewMode, isDark, controlsRef, onExpandedChange }:
   )
 }
 
-function FileSection({ file, viewMode, isDark, isOpen, onToggle }: {
+function FileSection({ file, viewMode, isDark, isOpen, onToggle, comments, onSubmitComment }: {
   file: CommitFileDiff
   viewMode: ViewMode
   isDark: boolean
   isOpen: boolean
   onToggle: () => void
+  comments?: LineComment[]
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
 }) {
   const displayName = file.previousFilename
     ? `${file.previousFilename} → ${file.filename}`
@@ -213,23 +223,26 @@ function FileSection({ file, viewMode, isDark, isOpen, onToggle }: {
             Binary file — no diff available
           </div>
         ) : (
-          <DiffContent file={file} viewMode={viewMode} showMinimap={false} />
+          <DiffContent file={file} viewMode={viewMode} showMinimap={false} comments={comments} onSubmitComment={onSubmitComment} isDark={isDark} />
         )
       )}
     </div>
   )
 }
 
-function DiffContent({ file, viewMode, showMinimap }: {
+function DiffContent({ file, viewMode, showMinimap, comments, onSubmitComment, isDark }: {
   file: CommitFileDiff
   viewMode: ViewMode
   showMinimap: boolean
+  comments?: LineComment[]
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
+  isDark?: boolean
 }) {
   if (file.status === 'added' && file.original === '') {
     return <NewFileViewer content={file.modified} />
   }
   if (viewMode === 'unified') {
-    return <UnifiedDiffViewer lines={file.lines} wrapLines={true} showMinimap={showMinimap} />
+    return <UnifiedDiffViewer lines={file.lines} wrapLines={true} showMinimap={showMinimap} comments={comments} filename={file.filename} onSubmitComment={onSubmitComment} isDark={isDark} />
   }
   return (
     <SideBySideDiffViewer
@@ -237,6 +250,10 @@ function DiffContent({ file, viewMode, showMinimap }: {
       rightLines={file.rightLines}
       wrapLines={true}
       showMinimap={showMinimap}
+      comments={comments}
+      filename={file.filename}
+      onSubmitComment={onSubmitComment}
+      isDark={isDark}
     />
   )
 }

@@ -15,8 +15,8 @@ import { useLocalStorage } from './hooks/useLocalStorage'
 import { usePeerShare, type ShareState } from './hooks/usePeerShare'
 import { useTheme } from './hooks/useTheme'
 import { useToast } from './hooks/useToast'
-import { computeLineDiff, computeSideBySide } from './lib/diff-utils'
-import { type CommitInfo, type FileDisplayMode } from './lib/github-utils'
+import { computeLineDiff, computeSideBySide, type DiffLine } from './lib/diff-utils'
+import { fetchCommitComments, postCommitComment, type CommitInfo, type FileDisplayMode, type LineComment } from './lib/github-utils'
 import { cn } from './lib/utils'
 
 // @ts-expect-error - Vite specific
@@ -33,6 +33,7 @@ interface DiffTabState {
   commitInfo: CommitInfo | null
   activeFileIndex: number
   fileDisplayMode: FileDisplayMode
+  comments: LineComment[]
 }
 
 function createTab(overrides?: Partial<Omit<DiffTabState, 'id'>>): DiffTabState {
@@ -45,6 +46,7 @@ function createTab(overrides?: Partial<Omit<DiffTabState, 'id'>>): DiffTabState 
     commitInfo: null,
     activeFileIndex: 0,
     fileDisplayMode: 'tabs',
+    comments: [],
     ...overrides,
   }
 }
@@ -97,7 +99,7 @@ export default function App() {
   const {
     original, modified,
     originalFileName, modifiedFileName,
-    commitInfo, activeFileIndex, fileDisplayMode,
+    commitInfo, activeFileIndex, fileDisplayMode, comments,
   } = activeTab
 
   // ── Global settings ────────────────────────────────────────────────────────
@@ -114,13 +116,19 @@ export default function App() {
   const [showImportModal, setShowImportModal] = useState(false)
 
   // ── Commit helpers ─────────────────────────────────────────────────────────
-  const handleCommitLoad = (commit: CommitInfo) => {
-    updateActiveTab({ commitInfo: commit, activeFileIndex: 0 })
+  const handleCommitLoad = async (commit: CommitInfo) => {
+    updateActiveTab({ commitInfo: commit, activeFileIndex: 0, comments: [] })
     setIsExpanded(false)
+    try {
+      const fetched = await fetchCommitComments(commit)
+      setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, comments: fetched } : t))
+    } catch {
+      // comments are optional
+    }
   }
 
   const handleCommitClear = () => {
-    updateActiveTab({ commitInfo: null, activeFileIndex: 0 })
+    updateActiveTab({ commitInfo: null, activeFileIndex: 0, comments: [] })
   }
 
   const commitFileDiffs = useMemo<CommitFileDiff[]>(() => {
@@ -157,6 +165,20 @@ export default function App() {
   // ── Toast / Share ──────────────────────────────────────────────────────────
   const { toasts, addToast, removeToast } = useToast()
   const handleFileError = useCallback((msg: string) => addToast(msg, 'error'), [addToast])
+
+  const handleSubmitComment = useCallback(async (filename: string, diffLine: DiffLine, body: string) => {
+    if (!commitInfo) return
+    const file = commitInfo.files.find(f => f.filename === filename)
+    try {
+      const comment = await postCommitComment(commitInfo, filename, file?.rawPatch, diffLine, body)
+      setTabs(prev => prev.map(t =>
+        t.id === activeTabId ? { ...t, comments: [...t.comments, comment] } : t
+      ))
+      addToast('Comment posted!', 'success', 3000)
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to post comment', 'error')
+    }
+  }, [commitInfo, activeTabId, addToast])
 
   const { shareState, shareUrl, startSharing, stopSharing, errorMessage: shareErrorMessage } = usePeerShare({
     onReceive: (payload) => {
@@ -492,6 +514,8 @@ export default function App() {
               isDark={isDark}
               stackedControlsRef={stackedControlsRef}
               onStackedExpandedChange={setStackedAllExpanded}
+              comments={comments}
+              onSubmitComment={handleSubmitComment}
             />
           </div>
         ) : (

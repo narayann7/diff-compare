@@ -1,6 +1,8 @@
-import { useRef, useState, useCallback, forwardRef } from 'react'
+import { Fragment, useRef, useState, useCallback, forwardRef } from 'react'
 import { type DiffLine, type DiffWord } from '../lib/diff-utils'
 import { cn } from '../lib/utils'
+import { CommentBox } from './CommentBox'
+import { type LineComment } from '../lib/github-utils'
 
 interface WordSpanProps {
   words: DiffWord[]
@@ -28,11 +30,13 @@ interface DiffLineRowProps {
   line: DiffLine
   showLeft?: boolean
   showRight?: boolean
+  onAddComment?: () => void
 }
 
-export function DiffLineRow({ line, showLeft = true, showRight = true }: DiffLineRowProps) {
+export function DiffLineRow({ line, showLeft = true, showRight = true, onAddComment }: DiffLineRowProps) {
   const lineClass = cn(
     'diff-line',
+    onAddComment && 'group',
     line.type === 'added' && 'line-added',
     line.type === 'removed' && 'line-removed',
     line.type === 'equal' && 'line-equal',
@@ -47,7 +51,20 @@ export function DiffLineRow({ line, showLeft = true, showRight = true }: DiffLin
 
   return (
     <div className={lineClass}>
-      <span className="diff-line-number">{lineNum ?? ''}</span>
+      <span className="diff-line-number relative">
+        <span className={cn(onAddComment && 'group-hover:opacity-0 transition-opacity duration-100')}>
+          {lineNum ?? ''}
+        </span>
+        {onAddComment && (
+          <button
+            onClick={e => { e.stopPropagation(); onAddComment() }}
+            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-blue-400 hover:text-blue-300 font-bold text-base leading-none"
+            title="Add a comment"
+          >
+            +
+          </button>
+        )}
+      </span>
       <span className="diff-line-content">
         {line.words ? <WordSpans words={line.words} /> : line.content}
       </span>
@@ -59,11 +76,60 @@ interface UnifiedDiffViewerProps {
   lines: DiffLine[]
   wrapLines: boolean
   showMinimap?: boolean
+  comments?: LineComment[]
+  filename?: string
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
+  isDark?: boolean
 }
 
-export function UnifiedDiffViewer({ lines, wrapLines, showMinimap }: UnifiedDiffViewerProps) {
+function CommentThread({ comment, isDark }: { comment: LineComment; isDark?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'flex gap-2.5 px-4 py-2 text-xs font-sans',
+        isDark
+          ? 'bg-surface-raised border-b border-surface-border/40'
+          : 'bg-gray-50 border-b border-surfaceLight-border/60',
+      )}
+    >
+      <div
+        className={cn(
+          'shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold',
+          isDark ? 'bg-white/10 text-white/60' : 'bg-gray-200 text-gray-600',
+        )}
+      >
+        {comment.author[0]?.toUpperCase() ?? '?'}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className={cn('font-medium', isDark ? 'text-white/80' : 'text-gray-700')}>
+            {comment.author}
+          </span>
+          <span className={isDark ? 'text-white/30' : 'text-gray-400'}>·</span>
+          <a
+            href={comment.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'hover:underline',
+              isDark ? 'text-white/30 hover:text-white/50' : 'text-gray-400 hover:text-gray-600',
+            )}
+          >
+            {new Date(comment.createdAt).toLocaleDateString()}
+          </a>
+        </div>
+        <p className={cn('whitespace-pre-wrap break-words', isDark ? 'text-white/70' : 'text-gray-600')}>
+          {comment.body}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export function UnifiedDiffViewer({ lines, wrapLines, showMinimap, comments, filename, onSubmitComment, isDark }: UnifiedDiffViewerProps) {
   const minimapRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const [activeCommentRow, setActiveCommentRow] = useState<number | null>(null)
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement
@@ -84,9 +150,18 @@ export function UnifiedDiffViewer({ lines, wrapLines, showMinimap }: UnifiedDiff
     }
   }, [])
 
+  const getLineComments = (line: DiffLine): LineComment[] => {
+    if (!comments || !filename) return []
+    return comments.filter(c => {
+      if (c.filename !== filename) return false
+      if (line.type === 'removed') return c.side === 'left' && c.lineNumber === line.lineNumberLeft
+      return c.side === 'right' && c.lineNumber === line.lineNumberRight
+    })
+  }
+
   return (
     <div className="flex flex-1 overflow-hidden relative">
-      <div 
+      <div
         ref={contentRef}
         onScroll={handleScroll}
         className={cn('font-mono text-sm overflow-auto flex-1 animate-fade-in', !wrapLines && 'overflow-x-auto')}
@@ -95,12 +170,29 @@ export function UnifiedDiffViewer({ lines, wrapLines, showMinimap }: UnifiedDiff
           <EmptyState />
         ) : (
           lines.map((line, i) => (
-            <DiffLineRow
-              key={i}
-              line={line}
-              showLeft={line.type !== 'added'}
-              showRight={line.type !== 'removed'}
-            />
+            <Fragment key={i}>
+              <DiffLineRow
+                line={line}
+                showLeft={line.type !== 'added'}
+                showRight={line.type !== 'removed'}
+                onAddComment={onSubmitComment ? () => setActiveCommentRow(i) : undefined}
+              />
+              {getLineComments(line).map(c => (
+                <CommentThread key={c.id} comment={c} isDark={isDark} />
+              ))}
+              {activeCommentRow === i && (
+                <div className="px-2 py-1.5">
+                  <CommentBox
+                    isDark={isDark}
+                    onSubmit={async body => {
+                      await onSubmitComment!(filename!, line, body)
+                      setActiveCommentRow(null)
+                    }}
+                    onCancel={() => setActiveCommentRow(null)}
+                  />
+                </div>
+              )}
+            </Fragment>
           ))
         )}
       </div>
@@ -114,9 +206,13 @@ interface SideBySideDiffViewerProps {
   rightLines: DiffLine[]
   wrapLines: boolean
   showMinimap?: boolean
+  comments?: LineComment[]
+  filename?: string
+  onSubmitComment?: (filename: string, diffLine: DiffLine, body: string) => Promise<void>
+  isDark?: boolean
 }
 
-export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMinimap }: SideBySideDiffViewerProps) {
+export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMinimap, comments, filename, onSubmitComment, isDark }: SideBySideDiffViewerProps) {
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -124,6 +220,14 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMin
 
   const [leftWidth, setLeftWidth] = useState(50)
   const [isResizing, setIsResizing] = useState(false)
+  const [activeCommentLeft, setActiveCommentLeft] = useState<number | null>(null)
+  const [activeCommentRight, setActiveCommentRight] = useState<number | null>(null)
+
+  const getComments = (line: DiffLine, side: 'left' | 'right'): LineComment[] => {
+    if (!comments || !filename) return []
+    const lineNum = side === 'left' ? line.lineNumberLeft : line.lineNumberRight
+    return comments.filter(c => c.filename === filename && c.side === side && c.lineNumber === lineNum)
+  }
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -202,7 +306,29 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMin
           </div>
         ) : (
           leftLines.map((line, i) => (
-            <DiffLineRow key={i} line={line} showLeft={true} showRight={false} />
+            <Fragment key={i}>
+              <DiffLineRow
+                line={line}
+                showLeft={true}
+                showRight={false}
+                onAddComment={onSubmitComment && line.lineNumberLeft ? () => setActiveCommentLeft(i) : undefined}
+              />
+              {getComments(line, 'left').map(c => (
+                <CommentThread key={c.id} comment={c} isDark={isDark} />
+              ))}
+              {activeCommentLeft === i && (
+                <div className="px-2 py-1.5">
+                  <CommentBox
+                    isDark={isDark}
+                    onSubmit={async body => {
+                      await onSubmitComment!(filename!, line, body)
+                      setActiveCommentLeft(null)
+                    }}
+                    onCancel={() => setActiveCommentLeft(null)}
+                  />
+                </div>
+              )}
+            </Fragment>
           ))
         )}
       </div>
@@ -235,7 +361,29 @@ export function SideBySideDiffViewer({ leftLines, rightLines, wrapLines, showMin
           </div>
         ) : (
           rightLines.map((line, i) => (
-            <DiffLineRow key={i} line={line} showLeft={false} showRight={true} />
+            <Fragment key={i}>
+              <DiffLineRow
+                line={line}
+                showLeft={false}
+                showRight={true}
+                onAddComment={onSubmitComment && line.lineNumberRight ? () => setActiveCommentRight(i) : undefined}
+              />
+              {getComments(line, 'right').map(c => (
+                <CommentThread key={c.id} comment={c} isDark={isDark} />
+              ))}
+              {activeCommentRight === i && (
+                <div className="px-2 py-1.5">
+                  <CommentBox
+                    isDark={isDark}
+                    onSubmit={async body => {
+                      await onSubmitComment!(filename!, line, body)
+                      setActiveCommentRight(null)
+                    }}
+                    onCancel={() => setActiveCommentRight(null)}
+                  />
+                </div>
+              )}
+            </Fragment>
           ))
         )}
       </div>
